@@ -3058,18 +3058,20 @@ private let heardLabel = NSTextField(labelWithString: "")
                 breakParagraph()
                 out.append(NSAttributedString(string: raw + "\n", attributes: token))
                 let scale = min(1, width * Self.inlineShotMaxWidthShare / image.size.width, Self.inlineShotMaxHeight / image.size.height)
-                let attachment = NSTextAttachment()
-                attachment.image = image
-                attachment.bounds = NSRect(x: 0, y: 0, width: (image.size.width * scale).rounded(),
-                                           height: (image.size.height * scale).rounded())
-                let pic = NSMutableAttributedString(attachment: attachment)
+                let size = NSSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+                var drawn = image
                 // A ✂️ area: the whole screen it was cut from, after it on the
                 // same line — greyed outside the box, the box ringed red (and a
-                // move's destination green, the arrow white). `AreaContext`.
+                // move's destination green, the arrow white) — and two lines from
+                // the cut's corners to the red box. One picture, so the lines can
+                // cross from one to the other. `AreaContext`.
                 if let context = areaContext(shot: n, token: raw, width: width) {
-                    pic.append(NSAttributedString(string: "  ", attributes: body))
-                    pic.append(NSAttributedString(attachment: context))
+                    drawn = AreaContext.callout(cut: image, cutSize: size, screen: context.image, box: context.box)
                 }
+                let attachment = NSTextAttachment()
+                attachment.image = drawn
+                attachment.bounds = NSRect(origin: .zero, size: drawn === image ? size : drawn.size)
+                let pic = NSMutableAttributedString(attachment: attachment)
                 pic.append(NSAttributedString(string: "\n", attributes: body))
                 pic.addAttribute(.paragraphStyle, value: picture, range: NSRange(location: 0, length: pic.length))
                 out.append(pic)
@@ -3093,19 +3095,18 @@ private let heardLabel = NSTextField(labelWithString: "")
     }
 
     /// The whole-screen thumbnail for a ✂️ token, capped like every picture in
-    /// the words — nil for a token that is not an area or a frame not on disk.
-    private func areaContext(shot n: Int, token: String, width: CGFloat) -> NSTextAttachment? {
+    /// the words, and the red box in its points — nil for a token that is not
+    /// an area or a frame not on disk.
+    private func areaContext(shot n: Int, token: String, width: CGFloat) -> (image: NSImage, box: CGRect)? {
         guard let frame = promptInlineFrames[n], let corners = AreaContext.corners(in: token),
               let image = NSImage(contentsOfFile: frame.path), image.size.width > 0, image.size.height > 0
         else { return nil }
         let scale = min(1, width * Self.inlineShotMaxWidthShare / image.size.width,
                         Self.inlineShotMaxHeight / image.size.height)
         let size = NSSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
-        let attachment = NSTextAttachment()
-        attachment.image = AreaContext.image(frame: image, pixels: frame.pixels, box: corners.box,
-                                             movedTo: corners.movedTo, size: size)
-        attachment.bounds = NSRect(origin: .zero, size: size)
-        return attachment
+        return (AreaContext.image(frame: image, pixels: frame.pixels, box: corners.box,
+                                  movedTo: corners.movedTo, size: size),
+                AreaContext.scaled(corners.box, pixels: frame.pixels, width: size.width))
     }
 
     private func layoutShots(width: CGFloat) -> CGFloat {

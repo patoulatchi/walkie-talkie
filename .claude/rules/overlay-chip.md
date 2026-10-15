@@ -439,6 +439,11 @@ yields to `--label`).
   The corners come out of the token itself (`AreaContext.corners`), scaled by the original's pixel
   width (`AppDelegate` hands `inlineFrames: [N: (800 px path, original pixels)]` for area frames
   only). Drawn, never written: the agent's files are unchanged. Same caps as every inline picture.
+  **Two red lines join the cut to its box** (same evening, Victor: *"two lines that go from the corner
+  of the cropped image to the circled red rectangle on the screen thumbnail"*): `AreaContext.callout`
+  draws cut + screen as **one** attachment (`calloutGap` 32 pt between them, both on the bottom edge)
+  so a line can cross from one to the other — the cut's right corners to the red box's left ones,
+  1.5 pt, dark halo. Two attachments on a line cannot draw across each other.
   Shots `prompt-area-context`, `prompt-move-context`; `AREA_CONTEXT_PNG=<dir> swift test --filter
   AreaContextTests` renders both drawings.
 - **A screen recording rides the strip, last, as a picture** (2026-10-08, Victor: *"when I send the

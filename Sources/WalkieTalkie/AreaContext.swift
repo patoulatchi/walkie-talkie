@@ -54,11 +54,8 @@ enum AreaContext {
         NSImage(size: size, flipped: true) { bounds in
             frame.draw(in: bounds, from: .zero, operation: .copy, fraction: 1,
                        respectFlipped: true, hints: nil)
-            let k = bounds.width / max(pixels.width, 1)
-            func scaled(_ r: CGRect) -> CGRect {
-                CGRect(x: r.minX * k, y: r.minY * k, width: r.width * k, height: r.height * k)
-            }
-            let boxes = [scaled(box)] + (movedTo.map { [scaled($0)] } ?? [])
+            let boxes = [scaled(box, pixels: pixels, width: bounds.width)]
+                + (movedTo.map { [scaled($0, pixels: pixels, width: bounds.width)] } ?? [])
             // Even-odd with the boxes as holes; two that overlap would cancel
             // each other's hole, so they are unioned first.
             let veilPath = NSBezierPath(rect: bounds)
@@ -79,6 +76,58 @@ enum AreaContext {
                 arrow(from: CGPoint(x: boxes[0].midX, y: boxes[0].midY),
                       to: CGPoint(x: boxes[1].midX, y: boxes[1].midY))
             }
+            return true
+        }
+    }
+
+    /// A rectangle in the frame's pixels, in a copy of it drawn `width` wide.
+    static func scaled(_ r: CGRect, pixels: CGSize, width: CGFloat) -> CGRect {
+        let k = width / max(pixels.width, 1)
+        return CGRect(x: r.minX * k, y: r.minY * k, width: r.width * k, height: r.height * k)
+    }
+
+    /// The space between the cut-out and the screen, where the lines cross.
+    static let calloutGap: CGFloat = 32
+
+    /// **The cut-out and the screen it came from as one picture, joined by two
+    /// lines** (2026-10-15, Victor: *"two lines that go from the corner of the
+    /// cropped image to the circled red rectangle on the screen thumbnail, so
+    /// it's clear that it comes from that part of the screen"*). The cut on the
+    /// left, the screen (`image(…)`) `calloutGap` to its right, both standing on
+    /// the same bottom edge like two attachments on one line would; the lines
+    /// run from the cut's right corners to the red box's left ones, a funnel
+    /// that narrows into the place it was cut from. `box` is the red box in the
+    /// screen picture's own points.
+    static func callout(cut: NSImage, cutSize: NSSize, screen: NSImage, box: CGRect) -> NSImage {
+        let screenSize = screen.size
+        let size = NSSize(width: cutSize.width + calloutGap + screenSize.width,
+                          height: max(cutSize.height, screenSize.height))
+        return NSImage(size: size, flipped: true) { bounds in
+            let cutRect = CGRect(x: 0, y: bounds.height - cutSize.height,
+                                 width: cutSize.width, height: cutSize.height)
+            let screenRect = CGRect(x: cutSize.width + calloutGap, y: bounds.height - screenSize.height,
+                                    width: screenSize.width, height: screenSize.height)
+            cut.draw(in: cutRect, from: .zero, operation: .sourceOver, fraction: 1,
+                     respectFlipped: true, hints: nil)
+            screen.draw(in: screenRect, from: .zero, operation: .sourceOver, fraction: 1,
+                        respectFlipped: true, hints: nil)
+            let target = box.offsetBy(dx: screenRect.minX, dy: screenRect.minY)
+            let lines = NSBezierPath()
+            lines.move(to: CGPoint(x: cutRect.maxX, y: cutRect.minY))
+            lines.line(to: CGPoint(x: target.minX, y: target.minY))
+            lines.move(to: CGPoint(x: cutRect.maxX, y: cutRect.maxY))
+            lines.line(to: CGPoint(x: target.minX, y: target.maxY))
+            lines.lineWidth = 1.5
+            lines.lineCapStyle = .round
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.6)
+            shadow.shadowBlurRadius = 2
+            shadow.shadowOffset = .zero
+            shadow.set()
+            sourceColor.withAlphaComponent(0.9).setStroke()
+            lines.stroke()
+            NSGraphicsContext.restoreGraphicsState()
             return true
         }
     }

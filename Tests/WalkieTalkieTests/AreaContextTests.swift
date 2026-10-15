@@ -49,7 +49,48 @@ final class AreaContextTests: XCTestCase {
         XCTAssertGreaterThan(brightness(rep, 215, 140), 0.95)
     }
 
+    func testTheCalloutJoinsTheCutToTheRedBox() throws {
+        // A 60 × 40 cut, the screen 320 × 200 to its right, the box at 200,100.
+        let cut = NSImage(size: NSSize(width: 60, height: 40), flipped: false) { r in
+            NSColor.white.setFill(); r.fill(); return true
+        }
+        let screen = NSImage(size: NSSize(width: 320, height: 200), flipped: false) { r in
+            NSColor.black.setFill(); r.fill(); return true
+        }
+        let box = CGRect(x: 200, y: 100, width: 60, height: 40)
+        let image = AreaContext.callout(cut: cut, cutSize: cut.size, screen: screen, box: box)
+        let gap = AreaContext.calloutGap
+        XCTAssertEqual(image.size, NSSize(width: 60 + gap + 320, height: 200))
+        let rep = try render(image, name: "callout.png")
+        // In the gap, halfway along the upper line: red.
+        let from = CGPoint(x: 60, y: 160), to = CGPoint(x: 60 + gap + 200, y: 100)
+        let mid = color(rep, Int((from.x + 60 + gap) / 2 + 0.5),
+                        Int(from.y + (to.y - from.y) * ((gap / 2) / (to.x - from.x)) + 0.5))
+        XCTAssertGreaterThan(mid.redComponent, 0.6)
+        XCTAssertLessThan(mid.greenComponent, 0.4)
+        // The cut stands on the bottom edge.
+        XCTAssertGreaterThan(brightness(rep, 30, 180), 0.95)
+        XCTAssertLessThan(brightness(rep, 30, 100), 0.1)
+    }
+
     // MARK: -
+
+    private func render(_ image: NSImage, name: String) throws -> NSBitmapImageRep {
+        let w = Int(image.size.width), h = Int(image.size.height)
+        let rep = try XCTUnwrap(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: w, pixelsHigh: h,
+                                                 bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                                 isPlanar: false, colorSpaceName: .deviceRGB,
+                                                 bytesPerRow: 0, bitsPerPixel: 0))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(in: NSRect(x: 0, y: 0, width: w, height: h))
+        NSGraphicsContext.restoreGraphicsState()
+        if let dir = ProcessInfo.processInfo.environment["AREA_CONTEXT_PNG"],
+           let png = rep.representation(using: .png, properties: [:]) {
+            try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+        }
+        return rep
+    }
 
     /// A white 320 × 200 frame drawn at 1:1, so a point is a pixel.
     private func draw(box: CGRect, movedTo: CGRect?) throws -> NSBitmapImageRep {
