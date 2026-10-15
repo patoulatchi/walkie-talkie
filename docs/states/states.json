@@ -145,12 +145,12 @@
     "group" : "At rest",
     "height" : 46,
     "image" : "quick-question.png",
-    "note" : "A clean sentence whose words go to a fast model instead of anywhere on the screen; the answer streams into the reply pop-up beside the pointer, its header the question as heard. The destination row says so, and which model will answer. Words only — no picture, no attachment — so the rows a prompt grows never appear.",
+    "note" : "A prompt whose outcome is an answer: its envelope — the screen, the shots and crops as pictures, the highlights and picks — goes to a fast model instead of anywhere on the screen, and the answer streams into the reply pop-up beside the pointer, its header the question as heard. The destination row says just `Asking` (2026-10-15; it named the model until then).",
     "shape" : "chip",
     "slug" : "quick-question",
     "title" : "⚡ A quick question",
-    "when" : "🔼 ← at rest — nothing to cancel (2026-10-09, `QuickAsk`).",
-    "width" : 217
+    "when" : "🔼 ← at rest — nothing to cancel (2026-10-09, `QuickAsk`); 🔼 → over a ⚡ answer asks a follow-up (2026-10-15).",
+    "width" : 208
   },
   {
     "alpha" : 0.80000000000000004,
@@ -500,7 +500,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Flashes",
-    "height" : 117,
+    "height" : 46,
     "image" : "flash-model-failed.png",
     "note" : "The longest flash there is, because it is the only one that means the next thing he tries will not work at all. This is the only recogniser the relay has.",
     "shape" : "flash",
@@ -692,7 +692,7 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
-    "height" : 251,
+    "height" : 203,
     "image" : "prompt-hover.png",
     "note" : "The ✕ appears — end the session. It exists only on the panel: an end-session button on something that moves away as you reach for it means nothing, which is why the chip has none and the menu bar keeps one that stays put.",
     "shape" : "panel",

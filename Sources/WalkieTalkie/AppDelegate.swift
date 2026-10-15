@@ -1143,7 +1143,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// **⚡ A quick question** (2026-10-09): a clean sentence whose words go to
     /// `QuickAsk` — a fast model, answering in the reply pop-up — instead of the
     /// caret. 🔼 ← at rest opens one (`onLocalCancel`). Consumed by `deliver`.
+    /// **A prompt since 2026-10-15, not a clean sentence** (Victor: *"all the
+    /// features available for prompting should be available as well for
+    /// questioning … the outcome is honestly just an answer"*): the context
+    /// frame, the shutter, the crops, the highlights and the picks ride it, and
+    /// `deliver` hands the envelope and its pictures to `QuickAsk`.
     private var quickAsk = false
+    /// **A follow-up to the ⚡ answer on screen** (2026-10-15): 🔼 → over its
+    /// pop-up opens it (`askFollowUp`), and `askQuick` sends `quickThread` with it.
+    private var quickFollowUp = false
 
     /// Somewhere for this dictation to go: a terminal already bound, one it is
     /// about to open for itself, the caret — or, since 2026-09-11, one he has
@@ -2113,7 +2121,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let done = DispatchSemaphore(value: 0)
             var out: [String: Any] = ["ok": true]
             DispatchQueue.main.async {
-                self.askQuick(text, done: { answer, error, first, total in
+                // `images: [path]` and `followUp: true` — a prompt's pictures, and a
+                // question asked over the ⚡ answer on screen (2026-10-15).
+                self.askQuick(text, images: body["images"] as? [String] ?? [],
+                              followUp: body["followUp"] as? Bool == true, done: { answer, error, first, total in
                     out = ["ok": answer != nil, "answer": answer ?? NSNull(), "error": error ?? NSNull(),
                            "firstWordMs": first.map { Int($0 * 1000) } ?? NSNull(), "totalMs": Int(total * 1000),
                            "model": QuickAsk.shared.model,
@@ -2354,7 +2365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 guard !self.source.phase.isWaitingForWords else { return }
                 Log.info("⚡ 🔼 ← at rest — a quick question for \(QuickAsk.shared.model)")
-                self.startDictation(paste: true, clean: true, quick: true)
+                self.startDictation(paste: true, quick: true)
             }
         }
         // `onWisprMaybeStarting` belongs to `WisprFlowSource` now — it is the
@@ -2576,6 +2587,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.toggleCoalescedByStall() { return }
                 if !self.listening, !self.source.isRecording, let tty = ReplyPanel.ttyUnderPointer {
                     return self.replyBack(to: tty)
+                }
+                if !self.listening, !self.source.isRecording, ReplyPanel.quickUnderPointer {
+                    return self.askFollowUp()
                 }
                 self.toggleDictation(flipsDestination: true)
             }
@@ -3740,7 +3754,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // folder (armed at the gesture), a caret sentence says so and outranks
         // the bound terminal for its own length, and a sentence with nothing
         // bound names the gesture that would give it somewhere to go.
-        if quickAsk { overlay.setSpawnDestination("quick answer — \(QuickAsk.shared.model)", mark: RelayWindow.questionMark) }
+        // **Just `Asking`** (2026-10-15, Victor: *"the tooltip … should just say
+        // asking"*) — it said `quick answer — opus`.
+        if quickAsk { overlay.setSpawnDestination(Self.askingRow, mark: RelayWindow.questionMark) }
         else if pasteMode { overlay.setSpawnDestination("caret", icon: RelayWindow.pinGlyph) }
         else if !spawnPending, !isBound {
             overlay.setSpawnDestination("bind to send", icon: RelayWindow.pinGlyph)
@@ -4162,8 +4178,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let clean = cleanSentence && !cleanRedirected
         let prompt = caretPrompt && !cleanRedirected
         let submitClean = clean && submitAfterClean
-        let quick = quickAsk && clean
+        // A question redirected to a terminal or a spawn mid-sentence lost its
+        // flag there (`retarget`, `convertDictationToSpawn`).
+        let quick = quickAsk
+        let followUp = quickFollowUp
         quickAsk = false
+        quickFollowUp = false
         cleanSentence = false
         caretPrompt = false
         submitAfterClean = false
@@ -4214,7 +4234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? spokenText : resolvingMarkers(spokenText, words: originalWords, inline: false, said: result.said)
         // 🔼 ↓ — after the corpus copy is taken, because he never said it.
         // Never on a plain sentence: it is a word for an agent.
-        if clean { kamikaze = false }
+        if clean || quick { kamikaze = false }
         if kamikaze {
             kamikaze = false
             result.text += "\n\nkamikaze"
@@ -4241,12 +4261,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             latchedAtCaret = false
             endSettling(reason: "asking the quick model")
             recordDelivery(via: result.via, kind: result.delivery, to: "quick")
+            // **The envelope, as the caret prompt's** (2026-10-15) — minus the
+            // `walkie-reply` hint, which is an agent's — and its pictures: each
+            // frame's 800 px copy, a crop's cut-out instead. Read before
+            // `caretLine` drains them.
+            stateLock.lock()
+            let frames = [pendingScreen].compactMap { $0 } + pendingShots
+            stateLock.unlock()
+            pendingVia = result.via
+            pendingEngine = result.engineLabel
+            let line = caretLine(words: result.text, full: true)
+                .components(separatedBy: "\n").filter { $0 != Self.questionHint }.joined(separator: "\n")
+            pendingVia = nil
+            pendingEngine = nil
+            let pictures = frames.map { ScreenCapture.zoom(for: $0) ?? ScreenCapture.handover(for: $0) }
             if !answeringInBackground {
                 overlay.setSpawnDestination(nil)
                 overlay.clearSelection()
             }
-            holdOnClipboard(result.text, why: "a ⚡ quick question")
-            askQuick(result.text)
+            holdOnClipboard(line, why: "a ⚡ quick question")
+            askQuick(spokenText, prompt: line, images: pictures, followUp: followUp)
             return
         }
         pendingPromptWarning = result.warning
@@ -5131,6 +5165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             caretPrompt = false
             cleanSentence = false
             quickAsk = false
+            quickFollowUp = false
             submitAfterClean = false
         }
         if !bg { hotkeys.ownCleanSentence = false }
@@ -5589,6 +5624,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `aimAtPreviousTerminal`.
     private func retarget(to label: String) {
         pasteMode = false
+        dropQuestion(for: label)
         // **A clean sentence goes too** (2026-09-26, TG13): `deliver` sends a
         // `cleanSentence` to the caret whatever `pasteMode` says, so the flash
         // said `↪️` and the words landed at the caret. `cleanSentence` itself
@@ -5598,6 +5634,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlay.setSpawnDestination(nil)
         syncBorrowedGestures()
         overlay.flash("↪️ to \(label)", duration: 1.5)
+    }
+
+    /// **A ⚡ question sent to an agent instead is that agent's prompt** — the
+    /// envelope it already is, delivered where the gesture pointed; no answer
+    /// pop-up (2026-10-15).
+    private func dropQuestion(for label: String) {
+        guard quickAsk else { return }
+        quickAsk = false
+        quickFollowUp = false
+        Log.info("⚡ the question goes to \(label) as a prompt — no quick answer")
     }
 
     /// **Ask the source for a microphone**, and dress the gesture while it opens.
@@ -5620,7 +5666,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Gestures* off: its context shot is taken at the **release**, not the
     /// press, so the picture is of the screen his finger left.
     private func startDictation(spawn: Bool = false, paste: Bool = false,
-                                deferContext: Bool = false, clean: Bool = false, quick: Bool = false) {
+                                deferContext: Bool = false, clean: Bool = false, quick: Bool = false,
+                                followUp: Bool = false) {
         // **Never twice.** Every caller is a gesture that means "start", and two
         // of them arriving in one turn — a hold timer and a release racing for
         // the same press, the menu row clicked on a session already opening —
@@ -5702,7 +5749,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `HotkeyTap.onCleanToggle`): the relay's own source, the clean
         // envelope — words only, at the caret, whatever is bound.
         cleanSentence = clean
-        quickAsk = quick && clean
+        quickAsk = quick
+        quickFollowUp = quick && followUp
         hotkeys.ownCleanSentence = clean
         submitAfterClean = false
         contextAtWheelRelease = deferContext
@@ -5752,6 +5800,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if borrowedForWispr { returnBorrowedEngine("the start was refused") }
             cleanSentence = false
             quickAsk = false
+            quickFollowUp = false
             hotkeys.ownCleanSentence = false
             // W19: none of this gesture's flags outlive its refusal.
             clearSpawn()
@@ -6027,6 +6076,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if pasteMode {
             pasteMode = false
             if cleanSentence { cleanRedirected = true; submitAfterClean = false }
+            dropQuestion(for: "a new session")
             Log.info("✨ 🔼 ↑ on a caret sentence — off the caret, into a new session")
         }
         spawnPending = true
@@ -6192,6 +6242,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// **🔼 → over a ⚡ answer asks it a follow-up** (2026-10-15, Victor: *"if I
+    /// do the gesture for forward … right … on the surface of the little panel,
+    /// that would follow up a question on that, so it would be again in the ask
+    /// mode … preserve the conversation context … two or three such turns"*).
+    /// The pop-up stays up while he asks — the answer he is following up is
+    /// on it — and the new one replaces it.
+    private func askFollowUp() {
+        Log.info("⚡ 🔼 → over the quick answer — a follow-up, \(quickThread.count) turn(s) before it")
+        startDictation(paste: true, quick: true, followUp: true)
+    }
+
+    /// The `Asking` row on the chip while a question is spoken.
+    static let askingRow = "Asking"
+
+    /// **The ⚡ conversation on screen** — the turns a follow-up carries
+    /// (`QuickAsk.Turn`). A fresh 🔼 ← question starts it again; each turn's
+    /// answer is the best one so far, rewritten as the checks come in.
+    private var quickThread: [QuickAsk.Turn] = []
+
     /// **⚡ The question goes to `QuickAsk`, the answer streams into the reply
     /// pop-up** (2026-10-09) — the header is the question, so he sees what was
     /// heard. `done` is the desk route's: the answer, or why not, and the clocks.
@@ -6201,12 +6270,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// stops them. `checked` is the desk route's too, once everything is over.
     private var quickToken = 0
     static let quickPlaceholder = "Replying from training data" + ReplyPanel.dots
-    private func askQuick(_ question: String,
+    private func askQuick(_ question: String, prompt: String? = nil, images: [String] = [], followUp: Bool = false,
                           done: ((String?, String?, TimeInterval?, TimeInterval) -> Void)? = nil,
                           checked: ((_ web: String?, _ review: String?) -> Void)? = nil) {
         quickToken += 1
         let token = quickToken
-        let label = ReplyPanel.quickMark + question
+        // A follow-up's header says so: `⚡ ↳ <the question>`.
+        let label = ReplyPanel.quickMark + (followUp ? "↳ " : "") + question
+        let asked = prompt ?? question
+        let history = followUp ? Array(quickThread.suffix(QuickAsk.turnsKept)) : []
+        quickThread = history + [QuickAsk.Turn(question: asked, images: images, answer: "")]
+        let turn = quickThread.count - 1
+        func remember(_ best: String) {
+            guard quickToken == token, turn < quickThread.count else { return }
+            quickThread[turn].answer = best
+        }
         let started = CFAbsoluteTimeGetCurrent()
         // **The pop-up holds the best answer so far** (2026-10-10, Victor: *"un
         // răspuns imediat, apoi unul căutat, apoi unul criticat"*): the 🔎 and 🧐
@@ -6258,6 +6336,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // No ✏️ on the search (same day, *"scoate creionul din Search"*).
                 steps = ["🌐 searched", "🧐 adversarial reviewing" + ReplyPanel.dots]
                 searched = ReplyPanel.plain(c.text)
+                remember(searched ?? "")
             }
             Log.info(String(format: "⚡ 🔎 web answer at %.1f s — %@", CFAbsoluteTimeGetCurrent() - started,
                             String(text.prefix(80)).replacingOccurrences(of: "\n", with: " ")))
@@ -6271,6 +6350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 answer = c.text
                 steps[steps.count - 1] = c.changed ? "🧐 adversarial reviewed ✏️" : "🧐 adversarial reviewed"
                 reviewed = ReplyPanel.plain(c.text)
+                remember(reviewed ?? "")
             }
             Log.info(String(format: "⚡ 🧐 reviewed answer at %.1f s — %@", CFAbsoluteTimeGetCurrent() - started,
                             String(text.prefix(80)).replacingOccurrences(of: "\n", with: " ")))
@@ -6279,14 +6359,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ReplyPanel.finishLive(question: token)
             checked?(searched, reviewed)
         })
-        QuickAsk.shared.ask(question, checks: checks, onText: { text in
+        QuickAsk.shared.ask(asked, images: images, history: history, checks: checks, onText: { text in
             answer = text
             paint()
         }, onDone: { text, error, first, model in
             let total = CFAbsoluteTimeGetCurrent() - started
             answer = text ?? "⚠️ \(error ?? "no answer")"
             signature = model
-            if text != nil { steps = ["🌐 searching" + ReplyPanel.dots] }
+            if let text { steps = ["🌐 searching" + ReplyPanel.dots]; remember(text) }
             paint(force: true)
             if let text {
                 Log.info(String(format: "⚡ quick answer (%@) — first word %@, whole %.2f s, %d chars",
@@ -12297,7 +12377,7 @@ extension AppDelegate {
         var kamikaze = false, contextAtWheelRelease = false
         var spawnPending = false, spawnFolder: String?
         var pasteMode = false, caretPrompt = false, cleanSentence = false, submitAfterClean = false
-        var quickAsk = false
+        var quickAsk = false, quickFollowUp = false
         var latchedAtCaret = false, cleanRedirected = false
         var latch: Latch?
         var latchedMouse: CGPoint?
@@ -12338,7 +12418,7 @@ extension AppDelegate {
         e.kamikaze = kamikaze
         e.spawnPending = spawnPending; e.spawnFolder = spawnFolder
         e.pasteMode = pasteMode; e.caretPrompt = caretPrompt; e.cleanSentence = cleanSentence
-        e.submitAfterClean = submitAfterClean; e.quickAsk = quickAsk
+        e.submitAfterClean = submitAfterClean; e.quickAsk = quickAsk; e.quickFollowUp = quickFollowUp
         e.latchedAtCaret = latchedAtCaret; e.cleanRedirected = cleanRedirected
         e.latch = latch; e.latchedMouse = latchedMouse
         e.pendingPromptWarning = pendingPromptWarning
@@ -12353,7 +12433,7 @@ extension AppDelegate {
         kamikaze = false
         spawnPending = false; spawnFolder = nil
         pasteMode = false; caretPrompt = false; cleanSentence = false; submitAfterClean = false
-        quickAsk = false
+        quickAsk = false; quickFollowUp = false
         latchedAtCaret = false; cleanRedirected = false; latch = nil; latchedMouse = nil
         pendingPromptWarning = nil; pendingVia = nil; pendingEngine = nil; pendingHeard = nil; pendingDeliveryKind = nil
         pendingAffect = nil
@@ -12396,7 +12476,7 @@ extension AppDelegate {
         kamikaze = e.kamikaze
         spawnPending = e.spawnPending; spawnFolder = e.spawnFolder
         pasteMode = e.pasteMode; caretPrompt = e.caretPrompt; cleanSentence = e.cleanSentence
-        submitAfterClean = e.submitAfterClean; quickAsk = e.quickAsk
+        submitAfterClean = e.submitAfterClean; quickAsk = e.quickAsk; quickFollowUp = e.quickFollowUp
         latchedAtCaret = e.latchedAtCaret; cleanRedirected = e.cleanRedirected
         latch = e.latch; latchedMouse = e.latchedMouse
         pendingPromptWarning = e.pendingPromptWarning

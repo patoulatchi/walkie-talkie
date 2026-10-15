@@ -171,11 +171,11 @@ enum OverlayStates {
             },
 
             Shot(slug: "quick-question", group: "At rest", title: "⚡ A quick question",
-                 when: "🔼 ← at rest — nothing to cancel (2026-10-09, `QuickAsk`).",
-                 note: "A clean sentence whose words go to a fast model instead of anywhere on the screen; the answer streams into the reply pop-up beside the pointer, its header the question as heard. The destination row says so, and which model will answer. Words only — no picture, no attachment — so the rows a prompt grows never appear.",
+                 when: "🔼 ← at rest — nothing to cancel (2026-10-09, `QuickAsk`); 🔼 → over a ⚡ answer asks a follow-up (2026-10-15).",
+                 note: "A prompt whose outcome is an answer: its envelope — the screen, the shots and crops as pictures, the highlights and picks — goes to a fast model instead of anywhere on the screen, and the answer streams into the reply pop-up beside the pointer, its header the question as heard. The destination row says just `Asking` (2026-10-15; it named the model until then).",
                  shape: "chip", alpha: 0.80) { o in
                 o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ petclinic — Fix the tax rounding", icon: terminal)
-                o.setSpawnDestination("quick answer — haiku", mark: RelayWindow.questionMark)
+                o.setSpawnDestination(AppDelegate.askingRow, mark: RelayWindow.questionMark)
                 o.asking = true
                 o.setListening(true)
             },

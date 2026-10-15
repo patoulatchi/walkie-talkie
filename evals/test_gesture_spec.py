@@ -230,7 +230,7 @@ def spec(src: dict):
                 ("no marker splicing (a highlight inlined into the words)", "AppDelegate `deliver`",
                  lambda: has(function(src, ad, "deliver"), r"result\.text = clean \? spokenText :")),
                 ("no kamikaze word", "AppDelegate `deliver`",
-                 lambda: has(function(src, ad, "deliver"), r"if clean \{ kamikaze = false \}")),
+                 lambda: has(function(src, ad, "deliver"), r"if clean(?: \|\| quick)? \{ kamikaze = false \}")),
                 ("no Return unless 🔽 asked for it", "AppDelegate `deliver`",
                  lambda: has(function(src, ad, "deliver"), r"let submitClean = clean && submitAfterClean")),
             ],
@@ -390,7 +390,7 @@ def spec(src: dict):
             # Victor, 2026-10-09: "a quick fast mode … that will answer as fast as
             # it can … the key to bind it to. I think forward and left".
             "row": ("🔼 forward", "drag left"),
-            "does": "mid-sentence: CANCEL it; at rest: a ⚡ QUICK QUESTION — clean words to the fast model, answer in the reply pop-up",
+            "does": "mid-sentence: CANCEL it; at rest: a ⚡ QUICK QUESTION — a prompt to the fast model, answer in the reply pop-up",
             "checks": [
                 ("F11 raises the cancel, and only the cancel", "HotkeyTap `case VK_F11`",
                  lambda: has(gesture_case(src, "VK_F11"), r"onLocalCancel\?\(\)") and
@@ -398,13 +398,19 @@ def spec(src: dict):
                 ("a cancel comes first; the question only when nothing was cancelled", "AppDelegate `onLocalCancel`",
                  lambda: before(closure(src, "hotkeys.onLocalCancel"),
                                 r"if self\.cancelSentenceOrPanel\(.*?\) \{ return \}",
-                                r"startDictation\(paste: true, clean: true, quick: true\)")),
+                                r"startDictation\(paste: true, quick: true\)")),
                 ("…an answer still coming is dropped before a new question opens", "AppDelegate `onLocalCancel`",
                  lambda: before(closure(src, "hotkeys.onLocalCancel"),
                                 r"QuickAsk\.shared\.cancel\(\)", r"quick: true")),
                 ("the words go to the quick model before any caret or terminal route", "AppDelegate `deliver`",
-                 lambda: before(function(src, ad, "deliver"), r"if quick \{.*?askQuick\(result\.text\)",
+                 lambda: before(function(src, ad, "deliver"), r"if quick \{.*?askQuick\(spokenText, prompt: line",
                                 r"if case \.alreadyInserted = result\.delivery")),
+                # 2026-10-15: "if I do the gesture for forward … right … on the
+                # surface of the little panel, that would follow up a question".
+                ("🔼 → at rest over a ⚡ answer asks it a follow-up", "AppDelegate `onForwardRight`",
+                 lambda: before(closure(src, "hotkeys.onForwardRight"),
+                                r"ReplyPanel\.quickUnderPointer \{\s*return self\.askFollowUp\(\)",
+                                r"self\.toggleDictation\(flipsDestination: true\)")),
             ],
         },
         {

@@ -99,6 +99,13 @@ enum ReplyPanel {
         return tty
     }
 
+    /// **The pointer is over a ⚡ quick answer** — 🔼 → there asks it a
+    /// follow-up (`AppDelegate.askFollowUp`, 2026-10-15). Main thread.
+    static var quickUnderPointer: Bool {
+        guard let p = panel, openLabel?.hasPrefix(quickMark) == true else { return false }
+        return p.frame.insetBy(dx: -8, dy: -8).contains(NSEvent.mouseLocation)
+    }
+
     /// **The 📍 binds that terminal** (2026-10-08, Victor: *"the new icon … next
     /// to the death face … would rebind me, but it only displays if I'm not
     /// already bound to that terminal … the [pin] that shows caret"*) —
@@ -303,6 +310,11 @@ enum ReplyPanel {
             // The pointer may be on a link: its tip again, on the new view.
             root.refreshHover()
             shown = plain(text)
+            // A follow-up asked while the last answer was still being checked
+            // writes into the same pop-up — it is this question's now, or its
+            // `finishLive` never matches and the pop-up stays `liveOpen`.
+            openLabel = label
+            liveToken = token
             return
         }
         if let p = panel, let open = shown {

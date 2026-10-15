@@ -1793,6 +1793,9 @@ final class CaretHalo {
     }
 
     private func show(opening: Opening) {
+        // **The ❓ opens whole, in a flash** (2026-10-15) — no bloom out of
+        // the pointer under it; see `flashQuestion`.
+        let opening: Opening = drawn == .questionMark ? .whole : opening
         // A ring opening while the last sentence's is still docked on the
         // prompt panel takes the panel back to the pointer, in a cut.
         settleDock()
@@ -1872,6 +1875,7 @@ final class CaretHalo {
             panel.alphaValue = 1
         }
         panel.orderFrontRegardless()
+        if drawn == .questionMark { flashQuestion(panel) }
 
         // Global catches every other app the pointer moves over; local catches
         // this app's own panels, which never see a global monitor's events —
@@ -2549,6 +2553,8 @@ final class CaretHalo {
             // three-second linear fall cut short — past `questionQuiet` of audio
             // with nothing over the voiced bar it is gone within a second. The
             // film runs on underneath, so it comes back mid-crackle.
+            // The opening flash owns the alpha for its 0.3 s (`flashQuestion`).
+            if CFAbsoluteTimeGetCurrent() < questionFlashUntil { return }
             let q = CGFloat(quietSeconds?() ?? 0)
             let t = min(max((q - Self.questionQuiet.lowerBound) / (Self.questionQuiet.upperBound - Self.questionQuiet.lowerBound), 0), 1)
             panel.alphaValue = Self.questionLoud * loud * (1 - t * t * (3 - 2 * t)) * coastFactor
@@ -3011,6 +3017,25 @@ final class CaretHalo {
         layer.pixelBufferAttributes = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         return layer
     }
+
+    /// **The question mode says it has opened** (2026-10-15, Victor: *"When
+    /// you open the question mode, the question with the lightning around
+    /// should appear, fading out for 300 milliseconds, flash basically"*): the
+    /// film is invisible in silence, so until he spoke nothing said the ❓ was
+    /// listening. Up at `questionLoud` at once, faded out over `questionFlash`
+    /// (ease-out); the voice has the alpha back after it.
+    private func flashQuestion(_ panel: NSPanel) {
+        questionFlashUntil = CFAbsoluteTimeGetCurrent() + Self.questionFlash
+        panel.alphaValue = Self.questionLoud
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Self.questionFlash
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 0
+        }
+        Log.info("◯ caret halo: the ❓ flashes up and fades over \(Int(Self.questionFlash * 1000)) ms — question mode open")
+    }
+    private var questionFlashUntil: CFAbsoluteTime = 0
+    static let questionFlash: TimeInterval = 0.3
 
     private(set) static var questionPlayer: AVQueuePlayer?
     private static var questionLooper: AVPlayerLooper?

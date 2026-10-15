@@ -15463,3 +15463,36 @@ times that morning (08:41, 10:50, 11:10). `MicAnnouncer.settled` now only logs `
 shown)`; the blue launch tab stays — it is the restart signal asked for on 2026-09-28 — and
 `engineBannerTitle` no longer carries the RAM (`💻 Local LoRA`). The footprint remains in the menu's
 Engine row.
+
+## 2026-10-15 — ⚡ the question is a prompt, it can be followed up, and it flashes open
+
+Victor: *"When you open the question mode, the question with the lightning around should appear,
+fading out for 300 milliseconds … the question mode should also be able to pick images, text …
+all the features available for prompting should be available as well for questioning … the outcome
+is honestly just an answer, not doing. It's kind of like an ask mode. And the tooltip … should just
+say asking … To have a multi-turn questioning … if I do the gesture for forward … right … on the
+surface of the little panel, that would follow up a question … If you can preserve the conversation
+context, I don't expect to have more than two or three such turns."*
+
+- **A prompt, not a clean sentence.** 🔼 ← at rest opens `startDictation(paste: true, quick: true)`:
+  `caretPrompt`, so the context frame, the ⌘C probe, the shutter (🔽), the crop, the typing box and
+  the highlights all ride it. `deliver` builds the caret prompt's envelope (`caretLine(full: true)`)
+  minus `questionHint`, and hands `QuickAsk` the envelope plus each frame's picture (the 800 px copy,
+  a crop's cut-out instead). 🔼 ends it (`⚡ ask` on the corner bar); 🔼 → / 🔼 ↑ mid-sentence send it
+  to a terminal / a new session as an ordinary prompt (`dropQuestion`).
+- **Pictures go in as content blocks**, each after a `📸n:` label, in the one stream-json user
+  message — measured: `claude -p --tools ""` reads them (2.2 s for an 800 px frame + a question). No
+  Read tool, so the lean process stays lean. ≤ 8 a message, newest kept.
+- **Follow-ups:** 🔼 → at rest over a ⚡ pop-up (`ReplyPanel.quickUnderPointer`) → `askFollowUp`.
+  The pop-up stays while he asks (the answer is what he is reading); the new answer replaces it,
+  headed `⚡ ↳ <question>`. `AppDelegate.quickThread` holds the turns (envelope, pictures, best answer
+  so far — quick → searched → reviewed); a follow-up sends the last ≤ 4 as a transcript at the top of
+  the message, every picture labelled `📸n of question k`. The web check and the review get the same
+  framing. A fresh 🔼 ← starts the thread again. Desk: `POST /test/quick {"images": [...],
+  "followUp": true}` — verified with a slide's title, then *"who wrote the original version, according
+  to it?"* answered off the first turn's picture.
+- **The ❓ flashes open**: the film is invisible in silence, so `CaretHalo.flashQuestion` puts it up
+  whole (no bloom) at `questionLoud` and fades it over 0.3 s, ease-out; the voice owns the alpha after.
+- **The chip's destination row says `Asking`** (`AppDelegate.askingRow`), not `quick answer — opus`.
+- Fixed on the way: a question asked while the last one was still being checked wrote into the same
+  live pop-up without taking its token, so `finishLive` never matched and it stayed `liveOpen`.

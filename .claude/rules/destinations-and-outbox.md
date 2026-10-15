@@ -364,3 +364,19 @@ can"*, on his subscription; *"the key to bind it to. I think forward and left"*.
   wider so that adversarial review fits … replace the dot between them with a plus"*): `— Opus 5.5 +
   🌐 searched + 🧐 adversarial reviewed ✏️` measures ~391–403 pt at 15 pt (Opus/Sonnet); the body is
   `width − 42`, so 380 wrapped it and 450 holds it on one line. The `·` above is superseded.
+
+- **A question is a prompt; it flashes open; it can be followed up** (2026-10-15, Victor: *"all the
+  features available for prompting should be available as well for questioning … the outcome is …
+  just an answer … the tooltip … should just say asking … if I do the gesture for forward … right …
+  on the surface of the little panel, that would follow up a question … two or three such turns"*).
+  Supersedes *clean sentence … words only, no picture* above: 🔼 ← opens `startDictation(paste: true,
+  quick: true)` — the caret prompt's envelope (`caretLine(full: true)`, minus `questionHint`) goes to
+  `QuickAsk` with every frame as a content block (800 px copy, a crop's cut-out; `📸n:` label before
+  each, ≤ 8). 🔼 ends it, 🔽 is the shutter; 🔼 → / 🔼 ↑ mid-sentence make it a terminal / spawn
+  prompt (`dropQuestion`). **🔼 → at rest over a ⚡ pop-up** (`ReplyPanel.quickUnderPointer`) →
+  `askFollowUp`: the pop-up stays while he speaks, the answer replaces it under `⚡ ↳ <question>`;
+  `quickThread` (≤ 4 turns, each with its pictures and best answer so far) rides as a transcript
+  (`QuickAsk.framed`) to all three stages. Chip row: `Asking` (`AppDelegate.askingRow`). The ❓ film
+  opens whole at `questionLoud` and fades over 0.3 s (`CaretHalo.flashQuestion`). Desk:
+  `POST /test/quick {"images": [path], "followUp": true}`; log `⚡ asking with N picture(s) and M
+  earlier turn(s)`. → journal: *2026-10-15 — ⚡ the question is a prompt*

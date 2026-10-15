@@ -25,6 +25,16 @@ import Foundation
 /// then 🧐 a third, told to break it, reviews answer + sources. Each one is
 /// started while the stage before it runs, so its start-up is not waited for.
 /// The ✕ on the pop-up, or 🔼 ←, stops whatever stage is running.
+///
+/// **A question is a prompt whose outcome is an answer** (2026-10-15, Victor:
+/// *"all the features available for prompting should be available as well for
+/// questioning … It's kind of like an ask mode"*): the envelope comes with it —
+/// the screen, the shots and crops as pictures (content blocks, labelled 📸n,
+/// so the lean process needs no Read tool), the highlights and picks as text.
+/// **And it can be followed up** (same day: *"I should be able to fire a
+/// follow-up question … I don't expect to have more than two or three such
+/// turns"*): the turns before it ride as a transcript at the top of the same
+/// message, their pictures with them — each process still takes one message.
 final class QuickAsk {
     static let shared = QuickAsk()
 
@@ -33,7 +43,11 @@ final class QuickAsk {
         contain recognition mistakes: answer what he most likely meant. Be brief: \
         what was asked in one short sentence, plus at most one closely related fact \
         worth knowing; plain text, no markdown, no lists unless asked. \
-        Answer in the language of the question (Romanian or English).
+        Answer in the language of the question (Romanian or English). \
+        The question may carry what was on his screen: pictures labelled 📸n, \
+        selected text and picked elements in brackets, and file paths you cannot \
+        open — use them to understand what he is asking about. When earlier turns \
+        of the conversation are given, answer the last question in their light.
         """
     /// **Each check writes the whole answer again** (2026-10-10, Victor: *"un
     /// răspuns imediat, apoi unul căutat, apoi unul criticat … în funcție de cât
@@ -138,6 +152,65 @@ final class QuickAsk {
     static let checkTimeout: TimeInterval = 120
     static let webTools = "WebSearch,WebFetch"
 
+    /// **One turn of a conversation** (2026-10-15): what was asked — the whole
+    /// envelope — the pictures that came with it, and the best answer it got
+    /// (the reviewed one, else the searched one, else the quick one).
+    struct Turn {
+        var question: String
+        var images: [String]
+        var answer: String
+    }
+    /// The turns a follow-up carries — Victor expects *"two or three"*.
+    static let turnsKept = 4
+    /// Pictures in one message, newest kept.
+    static let imagesKept = 8
+
+    /// **The message a stage gets**: the turns before it as a transcript, then
+    /// this question — and every picture of the conversation, each behind its
+    /// `📸n` label (`📸n of question k` for an earlier turn's).
+    static func framed(_ question: String, history: [Turn]) -> String {
+        guard !history.isEmpty else { return question }
+        var lines = ["Earlier in this conversation:", ""]
+        for (i, t) in history.enumerated() {
+            lines.append("Question \(i + 1): \(t.question)")
+            lines.append("Answer \(i + 1): \(t.answer.isEmpty ? "(no answer yet)" : t.answer)")
+            lines.append("")
+        }
+        lines.append("Now the follow-up question:")
+        lines.append(question)
+        return lines.joined(separator: "\n")
+    }
+
+    static func pictures(_ images: [String], history: [Turn]) -> [(label: String, path: String)] {
+        var all: [(String, String)] = []
+        for (i, t) in history.enumerated() {
+            for p in t.images { all.append((label(p) + " of question \(i + 1)", p)) }
+        }
+        for p in images { all.append((label(p), p)) }
+        return Array(all.suffix(imagesKept))
+    }
+
+    private static func label(_ path: String) -> String {
+        ScreenCapture.number(of: path).map { "📸\($0)" } ?? "📸"
+    }
+
+    /// The text alone, or the text after its pictures as content blocks. A
+    /// picture that cannot be read is left out, never the question.
+    static func content(_ text: String, pictures: [(label: String, path: String)]) -> Any {
+        var blocks: [[String: Any]] = []
+        for (label, path) in pictures {
+            guard let data = FileManager.default.contents(atPath: path) else { continue }
+            let ext = (path as NSString).pathExtension.lowercased()
+            let type = ext == "png" ? "image/png" : ext == "gif" ? "image/gif" : ext == "webp" ? "image/webp" : "image/jpeg"
+            blocks.append(["type": "text", "text": label + ":"])
+            blocks.append(["type": "image", "source": ["type": "base64", "media_type": type,
+                                                       "data": data.base64EncodedString()]])
+        }
+        guard !blocks.isEmpty else { return text }
+        blocks.append(["type": "text", "text": text])
+        return blocks
+    }
+
     /// The follow-ups of one question, after its answer. Each gets its text so
     /// far, and `done: true` once, with the last of it — or why it failed.
     struct Checks {
@@ -229,7 +302,8 @@ final class QuickAsk {
     /// `onDone` the whole answer, or nil and why it failed, and the model that
     /// answered (`Opus 5.5`). Then, when `checks` is given, the 🔎 web check and
     /// the 🧐 review of it. All callbacks on main.
-    func ask(_ question: String, checks: Checks? = nil, onText: @escaping (String) -> Void,
+    func ask(_ question: String, images: [String] = [], history: [Turn] = [],
+             checks: Checks? = nil, onText: @escaping (String) -> Void,
              onDone: @escaping (_ answer: String?, _ error: String?, _ firstWord: TimeInterval?, _ model: String) -> Void) {
         queue.async {
             // A new question ends whatever the last one was still doing.
@@ -253,7 +327,12 @@ final class QuickAsk {
             let web = checks == nil ? nil : self.start(run, prompt: Self.webPrompt, tools: Self.webTools)
             let started = CFAbsoluteTimeGetCurrent()
             var first: TimeInterval?
-            self.stage(run, w, question, timeout: Self.timeout, onText: { text in
+            let asked = Self.framed(question, history: history)
+            let pictures = Self.pictures(images, history: history)
+            if !pictures.isEmpty || !history.isEmpty {
+                Log.info("⚡ asking with \(pictures.count) picture(s) and \(history.count) earlier turn(s)")
+            }
+            self.stage(run, w, Self.content(asked, pictures: pictures), timeout: Self.timeout, onText: { text in
                 if first == nil { first = CFAbsoluteTimeGetCurrent() - started }
                 DispatchQueue.main.async { onText(text) }
             }, onDone: { answer, error in
@@ -261,7 +340,7 @@ final class QuickAsk {
                 let name = w.servedModel.map(Self.displayName) ?? modelName
                 DispatchQueue.main.async { onDone(answer, error, first, name) }
                 guard let checks, let answer, let web else { return self.endLocked(run) }
-                self.check(run, question: question, answer: answer, web: web, checks: checks)
+                self.check(run, question: asked, pictures: pictures, answer: answer, web: web, checks: checks)
             })
             // The next one starts now, while this one answers.
             self.warmLocked()
@@ -269,7 +348,8 @@ final class QuickAsk {
     }
 
     /// 🔎 then 🧐, on `queue`.
-    private func check(_ run: Run, question: String, answer: String, web: Worker?, checks: Checks) {
+    private func check(_ run: Run, question: String, pictures: [(label: String, path: String)],
+                       answer: String, web: Worker?, checks: Checks) {
         guard let web else {
             DispatchQueue.main.async { checks.web("⚠️ the web check did not start", true) }
             return endLocked(run)
@@ -277,7 +357,7 @@ final class QuickAsk {
         // The reviewer starts while the web is searched.
         let reviewer = start(run, prompt: Self.reviewPrompt, tools: Self.webTools)
         let asked = "Question: \(question)\n\nQuick answer, from memory: \(answer)"
-        stage(run, web, asked, timeout: Self.checkTimeout, onText: { text in
+        stage(run, web, Self.content(asked, pictures: pictures), timeout: Self.checkTimeout, onText: { text in
             DispatchQueue.main.async { checks.web(text, false) }
         }, onDone: { found, error in
             DispatchQueue.main.async { checks.web(found ?? "⚠️ \(error ?? "no result")", true) }
@@ -289,7 +369,7 @@ final class QuickAsk {
             // search failed, the quick one.
             let all = found.map { "Question: \(question)\n\nAnswer, checked on the web:\n\($0)" }
                 ?? asked + "\n\n(The web check failed: \(error ?? "?"). Search yourself.)"
-            self.stage(run, reviewer, all, timeout: Self.checkTimeout, onText: { text in
+            self.stage(run, reviewer, Self.content(all, pictures: pictures), timeout: Self.checkTimeout, onText: { text in
                 DispatchQueue.main.async { checks.review(text, false) }
             }, onDone: { verdict, error in
                 DispatchQueue.main.async { checks.review(verdict ?? "⚠️ \(error ?? "no review")", true) }
@@ -307,7 +387,7 @@ final class QuickAsk {
 
     /// Sends `input` to `w` and calls `onDone` once — the result, its exit, or
     /// the timeout — on `queue`, unless the run was cancelled. Stops `w` after.
-    private func stage(_ run: Run, _ w: Worker, _ input: String, timeout: TimeInterval,
+    private func stage(_ run: Run, _ w: Worker, _ input: Any, timeout: TimeInterval,
                        onText: @escaping (String) -> Void, onDone: @escaping (String?, String?) -> Void) {
         var finished = false
         let finish: (String?, String?) -> Void = { text, error in
@@ -407,8 +487,9 @@ final class QuickAsk {
             try process.run()
         }
 
-        func send(_ question: String) {
-            let line: [String: Any] = ["type": "user", "message": ["role": "user", "content": question]]
+        /// `content` is the question's text, or its content blocks (`QuickAsk.content`).
+        func send(_ content: Any) {
+            let line: [String: Any] = ["type": "user", "message": ["role": "user", "content": content]]
             guard var data = try? JSONSerialization.data(withJSONObject: line) else { return }
             data.append(0x0A)
             try? stdin.fileHandleForWriting.write(contentsOf: data)

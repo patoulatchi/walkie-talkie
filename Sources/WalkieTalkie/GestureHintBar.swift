@@ -61,7 +61,7 @@ final class GestureHintBar {
         /// side buttons, because that is the hand the crop is in (2026-10-07).
         var crop: CropPhase? = nil
         /// A ⚡ quick question: its stop asks the model, nothing is typed and
-        /// no Return follows (2026-10-09).
+        /// no Return follows (2026-10-09); a prompt's gestures since 2026-10-15.
         var quick = false
     }
 
@@ -124,8 +124,15 @@ final class GestureHintBar {
             // de taste din colț"*) — `HotkeyTap.onTypeIn`.
             back.down = "⌨️ type"
         } else if s.quick {
-            back.click = "⚡ ask"
-            back.right = "⚡ ask"
+            // **A question is a prompt** (2026-10-15): 🔼 asks, 🔽 is the
+            // shutter and ↓ the typing box, as while prompting; no new session,
+            // no kamikaze, no film — a question's answer is the reply pop-up.
+            front.click = "⚡ ask"
+            front.up = ""
+            front.down = ""
+            back.click = "📸 shot"
+            back.up = ""
+            back.down = "⌨️ type"
         } else {
             back.click = "⏹️ + ⏎"
             back.right = "⏹️"
