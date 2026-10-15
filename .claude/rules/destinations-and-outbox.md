@@ -386,3 +386,14 @@ can"*, on his subscription; *"the key to bind it to. I think forward and left"*.
   opens whole at `questionLoud` and fades over 0.3 s (`CaretHalo.flashQuestion`). Desk:
   `POST /test/quick {"images": [path], "followUp": true}`; log `⚡ asking with N picture(s) and M
   earlier turn(s)`. → journal: *2026-10-15 — ⚡ the question is a prompt*
+
+- **Under Victor Addons' ⌥⇧ zoom the reply pop-up is magnified with the rest** (2026-10-15, Victor:
+  *"You shouldn't keep the small one … I should zoom in it. The top most basically has to
+  disappear."*). `ShareZoom` is an opaque `.screenSaver` window that films the display; at
+  `maximumWindow + 1` the pop-up was drawn twice — flat above the glass, magnified in the film.
+  `ReplyPanel.watchShareZoom` (from launch) reads Addons' `ro.victorrentea.share-zoom.cursor`
+  distributed note (the feed victor-effects' `VisibleCursor` reads; empty = ended, 1.5 s silent =
+  ended) and moves the open pop-up to `.screenSaver − 1` while the zoom is on, back to the top after.
+  The ✕ and links still work: the glass ignores the mouse and its cursor is the same transform.
+  Log `🔎 ⌥⇧ zoom on — the reply pop-up goes under it`. Not done for Walkie's other top-level panels
+  (`TypeInBox`, the spawn menu, the capture effects).

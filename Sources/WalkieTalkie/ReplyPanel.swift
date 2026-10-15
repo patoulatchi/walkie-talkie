@@ -347,6 +347,60 @@ enum ReplyPanel {
     private static var liveToken = 0, dismissedLive = -1
     private static var openLabel: String?
 
+    /// **Under Victor Addons' ⌥⇧ zoom, the pop-up is zoomed with the rest**
+    /// (2026-10-15, Victor: *"You shouldn't keep the small one … I should zoom in
+    /// it. The top most basically has to disappear."*). That zoom (`ShareZoom`)
+    /// is an opaque window at `.screenSaver` that films the display and shows it
+    /// magnified; at the maximum level the pop-up was drawn twice — unmagnified
+    /// above the glass and magnified in the film under it. While the zoom is on
+    /// it drops just under the glass, so only the film shows it. Its ✕ and links
+    /// still answer: the glass ignores the mouse, and the magnified pointer over
+    /// a magnified ✕ is the real pointer over the real one. Off the zoom it is
+    /// back at the top, over the effect panels (`spawn.md`'s reason).
+    private static var level: NSWindow.Level {
+        shareZoomOn
+            ? NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue - 1)
+            : NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)) + 1)
+    }
+
+    /// Addons posts the zoomed cursor ~30 Hz while it moves, every 0.5 s while it
+    /// rests, an empty note when the zoom ends — the same feed victor-effects'
+    /// `VisibleCursor` reads; silent for 1.5 s counts as ended (a crashed Addons).
+    private static let shareZoomNote = Notification.Name("ro.victorrentea.share-zoom.cursor")
+    private static var shareZoomObserver: NSObjectProtocol?
+    private static var shareZoomSeenAt: CFAbsoluteTime = 0
+    private static var shareZoomStale: Timer?
+    private static var shareZoomOn = false {
+        didSet {
+            guard shareZoomOn != oldValue else { return }
+            Log.info("🔎 ⌥⇧ zoom \(shareZoomOn ? "on — the reply pop-up goes under it" : "off — the reply pop-up back on top")")
+            panel?.level = level
+        }
+    }
+
+    static func watchShareZoom() {
+        guard shareZoomObserver == nil else { return }
+        shareZoomObserver = DistributedNotificationCenter.default().addObserver(
+            forName: shareZoomNote, object: nil, queue: .main
+        ) { note in
+            guard note.userInfo?["x"] != nil else {
+                shareZoomOn = false
+                shareZoomStale?.invalidate()
+                shareZoomStale = nil
+                return
+            }
+            shareZoomSeenAt = CFAbsoluteTimeGetCurrent()
+            shareZoomOn = true
+            guard shareZoomStale == nil else { return }
+            shareZoomStale = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { t in
+                guard CFAbsoluteTimeGetCurrent() - shareZoomSeenAt > 1.5 else { return }
+                shareZoomOn = false
+                t.invalidate()
+                shareZoomStale = nil
+            }
+        }
+    }
+
     private static func present(_ text: String, from label: String?, tty: String?, images: [URL] = []) {
         allowCursorInBackground
         shown = plain(text)
@@ -362,7 +416,8 @@ enum ReplyPanel {
         p.isOpaque = false
         p.backgroundColor = .clear
         p.hasShadow = true
-        p.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.maximumWindow)) + 1)
+        watchShareZoom()
+        p.level = level
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         p.sharingType = capturable ? .readOnly : .none
         p.hidesOnDeactivate = false

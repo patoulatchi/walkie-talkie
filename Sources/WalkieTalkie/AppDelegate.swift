@@ -1480,6 +1480,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         micId = InputDevice.chosenId
         // `walkie-reply` reads it; made now, not at the first answer.
         _ = Self.replyToken
+        ReplyPanel.watchShareZoom()
         ReplyPanel.onBind = { [weak self] tty in self?.rebindFromMenu(tty: tty, from: "the reply pop-up", fly: true) }
         ReplyPanel.isBound = { [weak self] tty in
             self?.terminal.target?.address == (tty as NSString).lastPathComponent
