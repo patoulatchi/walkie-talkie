@@ -181,6 +181,46 @@ enum ScreenCapture {
         return Frame(path: file.path, mouse: nil, area: px, size: pixelSize(of: file))
     }
 
+    /// **An image he copied while a prompt records** (2026-10-15, `AutoAttach`):
+    /// written as `screenshot-N-original.jpg` with its 800 px sibling, so it is
+    /// a picture in the same list, counted, numbered and handed over like a
+    /// frame. A transparent PNG is flattened onto white — JPEG has no alpha and
+    /// would otherwise come out on black.
+    static func fileImage(_ image: CGImage, offset: TimeInterval?, index: Int? = nil,
+                          into folder: URL? = nil) -> Frame? {
+        let dir = folder ?? Outbox.shotsDir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir
+            .appendingPathComponent(uniqueBase(stem(offset, index), in: dir) + "-original.jpg")
+        let w = image.width, h = image.height
+        guard w > 0, h > 0,
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let flat = ctx.makeImage(),
+              let dest = CGImageDestinationCreateWithURL(file as CFURL, "public.jpeg" as CFString, 1, nil)
+        else { return nil }
+        CGImageDestinationAddImage(dest, flat, [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else {
+            Log.error("could not write the copied image to \(file.lastPathComponent)")
+            return nil
+        }
+        writeHandoverCopy(of: file)
+        movesLock.lock(); copied.insert(file.path); movesLock.unlock()
+        prune()
+        return Frame(path: file.path, mouse: nil, area: nil, size: CGSize(width: w, height: h))
+    }
+
+    /// True for a picture `fileImage` wrote — the token says `📋 copied`.
+    static func isCopied(_ path: String) -> Bool {
+        movesLock.lock(); defer { movesLock.unlock() }
+        return copied.contains(path)
+    }
+    private static var copied: Set<String> = []
+
     /// The dragged rectangle **in the pixels of this image**, top-left origin
     /// like the image itself.
     ///

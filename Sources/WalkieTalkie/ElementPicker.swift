@@ -1172,6 +1172,16 @@ final class ElementPicker {
             guard let on = body?["on"] as? Bool else { return respond(conn, 400, ["ok": false, "error": "{\"on\": bool}"]) }
             respond(conn, 200, ["ok": true].merging(onTestAutosend?(on) ?? [:]) { _, new in new })
 
+        // **Auto-attach's three switches** (2026-10-15) — `{"selection"?, "screenshot"?,
+        // "clipboard"?: bool}`, written to the defaults like the menu's ticks (the
+        // caller puts them back); a watcher follows from the next sentence.
+        case ("POST", "/test/auto-attach"):
+            let body = ((try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]) ?? [:]
+            for kind in AutoAttach.Kind.allCases {
+                if let on = body[kind.rawValue] as? Bool { AutoAttach.set(kind, on) }
+            }
+            respond(conn, 200, ["ok": true, "autoAttach": AutoAttach.describe])
+
         // The held prompt panel — see `onTestPrompt`.
         case ("POST", "/test/prompt"):
             let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any]

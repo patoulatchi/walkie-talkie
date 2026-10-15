@@ -69,6 +69,7 @@ Full history and reasoning: docs/journal.md — see the sections named after eac
 | `Gestures: Logi` / `: Wheel` (`Mouse Gestures` until 2026-09-22) | `computermouse` | `>` — a two-row submenu |
 | `𝓯𝔁` (`Halo 𝓯𝔁 when…` until 2026-09-28 — *"no ellipses, no other words, just the FX stylish font"*; plain `Halo fx` until 2026-09-22; destination rows `Prompt at caret` / `Prompt to bounded` / `Prompt to new Claude` / `Plain dictation`, pre-process `Bass (kick per syllable)` → `Syllable beat`) | `sparkles` | `>` — the lightning ring, a line, the ported effects, the presets (greyed `— engine not bundled` until `butterchurn.min.js` is in `assets/milkdrop/`), then a row per destination with the same list, then `Engine: projectM｜Web` and `Pre-process: <chain>` (`Fx engine` / `Fx voice` until 2026-09-22 — *"doar «projectM», că deja știu cine e"*, and the parentheses shortened so the open list fits at the right edge of the screen) |
 | `Autosend` | the same pair — a `checkmark` when on, **nothing** when off | |
+| `Auto-attach` (2026-10-15) | `paperclip` | `>` — `Selected Text`, `Screenshot at Start`, `Everything I Copy`, each a tick (`checkmark` / blank), all on by default (`AutoAttach`, `screenshots-and-selection.md`) |
 | `Prompt Log` | 📜 | |
 | `Victor's Walkie Talkie (<build>)` | ℹ️ | | |
 | `Quit` | `power` | | |

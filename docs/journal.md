@@ -15496,3 +15496,35 @@ context, I don't expect to have more than two or three such turns."*
 - **The chip's destination row says `Asking`** (`AppDelegate.askingRow`), not `quick answer — opus`.
 - Fixed on the way: a question asked while the last one was still being checked wrote into the same
   live pop-up without taking its token, so `finishLive` never matched and it stayed `liveOpen`.
+
+## 2026-10-15 — 📎 Auto-attach: three switches, and everything copied rides the prompt
+
+Victor: *"Să fie opțiune în meniu dacă vreau să preiei selecția textului automat, dacă vrea să faci
+poză la începutul unui promptări. … încă un feature care, tot cu opțiune din meniu bifat by default,
+să preia ori de câte ori apăs ⌘C … ceea ce am pus acolo. Adevărul, am vrut să pun în clipboard un
+PNG, o poză, dar n-am putut. … Dacă copiez în clipboard ceva, de unde aș copia, să ajungă automat la
+agent."*
+
+- **Menu `Auto-attach ›` (`paperclip`) with three ticks, all on by default** (`AutoAttach`,
+  `UserDefaults` `autoAttach.selection|screenshot|clipboard`): `Selected Text`, `Screenshot at
+  Start`, `Everything I Copy`. *Automatic* is the line: off, the shutter (🔽) still reads the
+  highlight under it and takes its frame.
+- **Selected Text off** stops every automatic read: the ≤ 5 s probe at the start
+  (`probeRecentSelection`), the 1 s watcher, the drag-release probe, the read at the close.
+- **Screenshot at Start off** keeps `captureContext`'s booking (selection cleared, clock, ring) and
+  skips 📸0 and its ripple.
+- **Everything I Copy watches the change count, not the ⌘C key**: Chrome's *Copy Image* and a
+  context menu's *Copy* have no ⌘C behind them, and the PNG was exactly the case he could not get
+  across. 250 ms, only while a prompt's microphone is open (`attachable`), so Wispr's clipboard
+  dance and Q17's own write, both after the close, are never seen. Skipped: the relay's own writes
+  (`PasteboardTimeline.lastOwnCount`) and the selection probe's synthetic ⌘C
+  (`SelectionCapture.probedRecently`, ≤ 0.5 s after its restore). Read off main through `Clipboard`,
+  types first, sandwiched in `changeCount` (`CopiedItem.read`). Files beat an image (Finder puts the
+  icon as TIFF beside the file), an image beats text (Copy Image also carries the URL).
+- **Text → `[copied at 0:01: "…" from app Chrome]`**, a selection's slot and marker; already carried
+  as a highlight → not filed twice, and the watcher is told it has seen it. **Files → their paths**,
+  one per line, in the same token. **An image → a numbered picture**, `screenshot-N-original.jpg` +
+  `-800px` (`ScreenCapture.fileImage`, transparency flattened onto white), token `📸N 📋 copied`.
+- Desk: `POST /test/auto-attach`, `state.autoAttach`; `evals/test_envelope.py`
+  `CopiedWhilePrompting` / `NothingAutoAttached` (5/5 on the installed build, 13:37).
+

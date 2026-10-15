@@ -83,7 +83,20 @@ enum SelectionCapture {
 
     // MARK: - 2. Clipboard probe (Cmd+C, then restore)
 
+    /// **The probe's own ⌘C is not his copy** (2026-10-15): the clipboard
+    /// watcher (`AutoAttach.clipboard`) skips any move seen while a probe runs
+    /// or within half a second of its restore.
+    static var probedRecently: Bool {
+        probeLock.lock(); defer { probeLock.unlock() }
+        return probing > 0 || Date().timeIntervalSince(probeEnded) < 0.5
+    }
+    private static let probeLock = NSLock()
+    private static var probing = 0
+    private static var probeEnded = Date.distantPast
+
     private static func readViaClipboardProbe() -> String? {
+        probeLock.lock(); probing += 1; probeLock.unlock()
+        defer { probeLock.lock(); probing -= 1; probeEnded = Date(); probeLock.unlock() }
         // Each call takes `Clipboard`'s lock on its own — never across the
         // keystroke or the sleeps (`Clipboard`, the 2026-10-09 crash).
         let before = Clipboard.changeCount

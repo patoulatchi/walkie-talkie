@@ -2412,6 +2412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // watcher's own serial queue, so the probe and the poll can never be
         // reading and filing at the same time.
         hotkeys.onSelectionDragEnded = { [weak self] in
+            guard AutoAttach.isOn(.selection) else { return }
             self?.selectionQueue.async { self?.probeSelectionAfterDrag() }
         }
         // The menu's copy of the spawn chord. The same call, so the window it opens
@@ -4004,7 +4005,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let box = shotAreas[path] {
                 marked[n] = ShotMarker.Token.area(n, box, movedTo: ScreenCapture.moveTarget(for: path))
             } else {
-                marked[n] = ShotMarker.Token.shot(n, mouse: shotMice[path] ?? nil)
+                marked[n] = ShotMarker.Token.shot(n, mouse: shotMice[path] ?? nil,
+                                                copied: ScreenCapture.isCopied(path))
             }
         }
         let cues = markerCues
@@ -4047,6 +4049,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let marker = extra.marker else { continue }
             if extra.source == Self.typedSource {
                 selections[marker] = ShotMarker.Token.typed(extra.text)
+                continue
+            }
+            if let window = Self.copiedWindow(extra.source) {
+                selections[marker] = ShotMarker.Token.copied(
+                    Self.clampForTerminal(extra.text), app: Self.appName(of: window))
                 continue
             }
             selections[marker] = ShotMarker.Token.selection(
@@ -6913,6 +6920,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // title after the subprocess would name whatever he switched to while
         // still talking about this.
         let source = WindowContext.describe()
+        // **Auto-attach › Screenshot at Start** (2026-10-15): off, the sentence
+        // is booked exactly as before — the selection cleared, the clock
+        // started, the ring grown — and 📸0 is simply not taken.
+        let takesPicture = AutoAttach.isOn(.screenshot)
+        if !takesPicture { Log.info("context screen skipped — Auto-attach › Screenshot at Start is off") }
 
         stateLock.lock()
         let alreadyOpen = dictationInFlight
@@ -6926,7 +6938,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pendingSelectionIn = nil
             pendingSelectionMarker = nil
             pendingExtraSelections = []
-            contextShotPending = true
+            contextShotPending = takesPicture
             // The zero of every offset in this dictation, set the moment the
             // context shot is booked.
             if dictationStartedAt == nil {
@@ -6947,7 +6959,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Those take the best part of a second between them, and a flash that
         // lands after the work is a flash that no longer means "now": it was
         // firing long after the frame it confirms had already been taken.
-        if !alreadyOpen { CaptureFlash.announce(cursor: cursor, cycleMarker: true) }
+        if !alreadyOpen, takesPicture { CaptureFlash.announce(cursor: cursor, cycleMarker: true) }
         // …and the ring comes out of the point the bubble has just marked. A
         // hop of its own, like the flash's: `captureContext` is reached from the
         // loopback's listener thread too, and the halo is layers and timers.
@@ -6960,7 +6972,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // tap or the main queue, that is the flash frozen mid-fade.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            guard !alreadyOpen else { return }
+            guard !alreadyOpen, takesPicture else { return }
             // Named by its offset — 0:00 for a capture at the press, the hold's
             // length when the wheel path deferred it to the release.
             // **Index 0, because it is picture zero of the enumeration.** He did
@@ -7611,7 +7623,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // It has to settle over two seconds first, which is longer than that
         // gesture survives in practice, and the receipt says so on the chip
         // before a word is pasted.
-        syncSelectionWatch(attachable)
+        // **Both switches in `Auto-attach`** (2026-10-15) — ticked off, the
+        // watcher stays down; the shutter still reads the highlight under it.
+        syncSelectionWatch(attachable && AutoAttach.isOn(.selection))
+        syncClipboardWatch(attachable && AutoAttach.isOn(.clipboard))
     }
 
     // MARK: - The bound terminal
@@ -8255,6 +8270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (H3), and the clipboard's moves (C) — `desk-testing.md`.
         out["wisprLive"] = wisprSource.testDescribe()
         out["pasteboard"] = PasteboardTimeline.describe()
+        out["autoAttach"] = AutoAttach.describe
         return out
     }
 
@@ -9770,7 +9786,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             guard !m.inlinedShots.contains(n) else { return nil }
             let offset = i < m.shotOffsets.count ? m.shotOffsets[i] : nil
-            return ShotMarker.Token.caption(shot: n, mouse: m.mice[path] ?? nil)
+            return ShotMarker.Token.caption(shot: n, mouse: m.mice[path] ?? nil,
+                                            copied: ScreenCapture.isCopied(path))
                 + (offset.map { " at \(stamp($0))" } ?? "")
         }
 
@@ -9986,6 +10003,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if row.source == typedSource {
                 return ShotMarker.Token.typed(row.text)
                     .replacingOccurrences(of: "[typed:", with: "[typed\(clock):")
+            }
+            if let window = copiedWindow(row.source) {
+                return ShotMarker.Token.copied(clampForTerminal(row.text), app: appName(of: window))
+                    .replacingOccurrences(of: "[copied:", with: "[copied\(clock):")
             }
             let token = ShotMarker.Token.selection(clampForTerminal(row.text),
                                                    app: appName(of: row.source))
@@ -10227,7 +10248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // over on the spot, so without somewhere to hang the send it would
             // race this read and lose every time.
             defer { if let then = then { DispatchQueue.main.async(execute: then) } }
-            guard let self = self else { return }
+            guard let self = self, AutoAttach.isOn(.selection) else { return }
             self.stateLock.lock()
             let opened = self.dictationStartedAt
             self.stateLock.unlock()
@@ -10305,6 +10326,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the drag probe's: the objection was always to an *automatic* probe with
     /// no subject behind it, never to one behind a gesture he made himself.
     private func probeRecentSelection() {
+        guard AutoAttach.isOn(.selection) else {
+            Log.info("👁 no selection probe — Auto-attach › Selected Text is off")
+            return
+        }
         let ago = hotkeys.secondsSinceSelectionGesture
         guard ago <= Self.recentSelectionSeconds else {
             // Silent when it has never happened; the interesting case is a
@@ -10561,6 +10586,177 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.info("⌨️ typed at \(Self.stamp(offset)) — \(text.count) chars"
                  + (marker.map { ", marker \($0)" } ?? ", no marker — it goes under the words"))
         overlay.flash("⌨️ \(text.count > 40 ? String(text.prefix(40)) + "…" : text)", duration: 1.5)
+    }
+
+    // MARK: - Copied while a prompt records (2026-10-15, `AutoAttach.clipboard`)
+
+    /// The `source` a copied row carries — `📋 copied — <window>` — what makes
+    /// it render `[copied: "…"]`. The window it was copied in rides after the
+    /// dash, so `appName(of:)` still finds the application.
+    static let copiedPrefix = "📋 copied"
+
+    static func copiedSource(_ window: String?) -> String {
+        window.map { "\(copiedPrefix) — \($0)" } ?? copiedPrefix
+    }
+
+    /// The window a copied row was copied in (`""` when unknown); nil for any
+    /// row that was not copied.
+    static func copiedWindow(_ source: String?) -> String? {
+        guard let source, source.hasPrefix(copiedPrefix) else { return nil }
+        let rest = source.dropFirst(copiedPrefix.count)
+        return rest.hasPrefix(" — ") ? String(rest.dropFirst(3)) : String(rest)
+    }
+
+    private var clipboardWatch: DispatchSourceTimer?
+    /// The change count already accounted for. On `clipboardQueue` only.
+    private var clipboardSeen = -1
+    private let clipboardQueue = DispatchQueue(label: "ro.victorrentea.wispr-relay.clipboard")
+    private static let clipboardPollSeconds: TimeInterval = 0.25
+
+    /// **Whatever lands on the pasteboard while a prompt records goes with it.**
+    /// Victor: *"ori de câte ori apăs ⌘C … să preia din clipboard ceea ce am pus
+    /// acolo … am vrut să pun în clipboard un PNG … Dacă copiez în clipboard
+    /// ceva, de unde aș copia, să ajungă automat la agent."*
+    ///
+    /// **The change count, not the ⌘C key**: Chrome's *Copy Image*, a context
+    /// menu's *Copy*, a screenshot tool's copy are all copies with no ⌘C behind
+    /// them. One integer every 250 ms, only while a prompt's microphone is open
+    /// (`syncBorrowedGestures`' `attachable`) — so Wispr's clipboard dance and
+    /// the relay's own sentence on the clipboard, both after the close, are
+    /// never seen. The relay's own writes (`PasteboardTimeline.lastOwnCount`)
+    /// and its selection probe's ⌘C (`SelectionCapture.probedRecently`) are skipped.
+    private func syncClipboardWatch(_ on: Bool) {
+        guard on != (clipboardWatch != nil) else { return }
+        guard on else {
+            clipboardWatch?.cancel()
+            clipboardWatch = nil
+            Log.info("📋 clipboard watcher off")
+            return
+        }
+        Log.info("📋 clipboard watcher on — anything copied goes with the prompt")
+        // The baseline first, on the queue the ticks run on: what was on the
+        // clipboard before he started talking is not something he copied for it.
+        clipboardQueue.async { [weak self] in self?.clipboardSeen = Clipboard.changeCount }
+        let timer = DispatchSource.makeTimerSource(queue: clipboardQueue)
+        timer.schedule(deadline: .now() + Self.clipboardPollSeconds,
+                       repeating: Self.clipboardPollSeconds)
+        timer.setEventHandler { [weak self] in self?.pollClipboard() }
+        timer.resume()
+        clipboardWatch = timer
+    }
+
+    /// One tick, on `clipboardQueue`.
+    private func pollClipboard() {
+        let count = Clipboard.changeCount
+        guard count != clipboardSeen else { return }
+        clipboardSeen = count
+        if count == PasteboardTimeline.lastOwnCount || SelectionCapture.probedRecently {
+            Log.info("📋 clipboard moved (\(count)) — the relay's own write or selection probe, not a copy of his")
+            return
+        }
+        stateLock.lock()
+        let opened = dictationStartedAt
+        stateLock.unlock()
+        guard let opened else { return }
+        let moment = Date()
+        // Never under `stateLock` — it hops to the main queue (`fileSelection`).
+        let window = WindowContext.describe()
+        guard let item = CopiedItem.read(expecting: count) else {
+            Log.info("📋 clipboard moved (\(count)) — nothing readable in it, or it moved again")
+            return
+        }
+        fileCopied(item, at: moment, opened: opened, window: window)
+    }
+
+    private func fileCopied(_ item: CopiedItem, at moment: Date, opened: Date, window: String?) {
+        if refusesAttachment("📋 the copy") { return }
+        switch item {
+        case .image(let image):
+            fileCopiedImage(image, at: moment, opened: opened, window: window)
+        case .files(let paths):
+            fileCopiedText(paths.joined(separator: "\n"), at: moment, opened: opened, window: window,
+                           receipt: paths.count == 1 ? (paths[0] as NSString).lastPathComponent
+                                                     : "\(paths.count) files")
+        case .text(let text):
+            fileCopiedText(text, at: moment, opened: opened, window: window, receipt: nil)
+        }
+    }
+
+    /// A selection's slot and marker (`fileTyped`'s path), so it lands inline
+    /// where he copied it or under the words when it cannot. Text already
+    /// carried as a highlight is not filed twice, and the watcher is told it has
+    /// seen it, so the highlight he copied is not filed again when it settles.
+    private func fileCopiedText(_ text: String, at moment: Date, opened: Date, window: String?,
+                                receipt: String?) {
+        stateLock.lock()
+        guard dictationStartedAt == opened else {
+            stateLock.unlock()
+            Log.info("📋 copied \(text.count) chars — that prompt was already sent; dropped")
+            return
+        }
+        let offset = moment.timeIntervalSince(opened)
+        let carried = pendingSelection == text || pendingExtraSelections.contains { $0.text == text }
+        let marker = carried ? nil : reserveMarkerLocked(.selection, at: moment)
+        if !carried {
+            pendingExtraSelections.append((at: offset, text: text, source: Self.copiedSource(window),
+                                           marker: marker))
+        }
+        stateLock.unlock()
+        selectionQueue.async { [weak self] in
+            self?.resetPolledForDictation(opened)
+            self?.polledSeen.insert(text)
+        }
+        if carried {
+            Log.info("📋 copied at \(Self.stamp(offset)) — \(text.count) chars, already carried as a highlight")
+            return
+        }
+        if let marker { speakMarker(.selection, marker) }
+        Log.info("📋 copied at \(Self.stamp(offset)) — \(text.count) chars"
+                 + (marker.map { ", marker \($0)" } ?? ", no marker — it goes under the words"))
+        let shown = receipt ?? (text.count > 40 ? String(text.prefix(40)) + "…" : text)
+        DispatchQueue.main.async { [weak self] in
+            self?.overlay.flash("📋 \(shown)", duration: 1.5)
+        }
+    }
+
+    /// The tail of `fileArea`, for an image off the pasteboard: a numbered
+    /// picture in the same list (`screenshot-N`, `📸N 📋 copied`), counted on
+    /// the chip, flying into it from the pointer.
+    private func fileCopiedImage(_ image: CGImage, at moment: Date, opened: Date, window: String?) {
+        guard let number = reservePicture(at: moment) else { return }
+        let offset = moment.timeIntervalSince(opened)
+        guard let frame = ScreenCapture.fileImage(image, offset: offset, index: number,
+                                                  into: Outbox.dictationDir(opened)) else {
+            DispatchQueue.main.async { [weak self] in
+                self?.overlay.flash("⚠️ The copied image could not be saved")
+            }
+            return
+        }
+        let path = frame.path
+        stateLock.lock()
+        let attaching = dictationInFlight && dictationStartedAt == opened
+        shotSizes[path] = frame.size
+        shotSources[path] = Self.copiedSource(window)
+        if attaching {
+            shotMarkerNumbers[path] = number
+            pendingShots.append(path)
+            pendingShotOffsets.append(offset)
+        }
+        let count = pendingShots.count
+        stateLock.unlock()
+        guard attaching else {
+            Log.info("📋 copied image \(image.width)x\(image.height) — the prompt ended first; kept on disk only")
+            return
+        }
+        armOrphanFlush()
+        Log.info("📋 copied image \(image.width)x\(image.height) attached as 📸\(number) (\(count) picture(s) so far)")
+        publishShotCount()
+        // From a thumbnail-sized box at the pointer: it came from the clipboard,
+        // not from a display, so a whole screen shrinking would say the wrong thing.
+        let mouse = NSEvent.mouseLocation
+        let w: CGFloat = 240, h = w * CGFloat(image.height) / CGFloat(max(image.width, 1))
+        flyShotIntoChip(ScreenCapture.handover(for: path),
+                        from: CGRect(x: mouse.x - w / 2, y: mouse.y - h / 2, width: w, height: min(h, 400)))
     }
 
     /// `~/.walkie-talkie/reply-token`, 0600, made once: what `walkie-reply` sends

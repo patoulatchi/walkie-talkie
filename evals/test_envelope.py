@@ -910,6 +910,113 @@ class MicrophoneAfterACancel(unittest.TestCase):
                          "device was never attached to:\n" + "\n".join(after))
 
 
+def _copy_text(text):
+    subprocess.run(["pbcopy"], input=text.encode(), check=True)
+
+
+def _copy_png(path):
+    """Put a PNG on the general pasteboard the way an app's *Copy Image* does."""
+    js = ('ObjC.import("AppKit");'
+          'var pb = $.NSPasteboard.generalPasteboard; pb.clearContents;'
+          'var img = $.NSImage.alloc.initWithContentsOfFile("%s");'
+          'pb.writeObjects($.NSArray.arrayWithObject(img));' % path)
+    subprocess.run(["osascript", "-l", "JavaScript", "-e", js], capture_output=True, check=True)
+
+
+_PNG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "walkie-bound.png")
+
+
+def _copied_scene(cls, switches):
+    """A prompt with a sentence of text and a PNG copied while it records, under
+    `switches` (`POST /test/auto-attach`); his switches go back in teardown."""
+    state = _get(BASE, "/test/state")
+    if any(state.get(k) for k in ("isRecording", "settling", "speculative")):
+        raise unittest.SkipTest("a real dictation is in flight — not touching it")
+    cls.saved = state.get("autoAttach") or {}
+    target = _get(BASE, "/target")
+    cls.previous = target.get("address") if target.get("bound") else None
+    _post(BASE, "/test/auto-attach", switches)
+    stamp = int(time.time())
+    cls.copied = "copied while prompting %d" % stamp
+    cls.marker = "copied scene %d" % stamp
+    _post(BASE, "/bind", {"tty": _nowhere()})
+    _post(BASE, "/test/dictation/start")
+    time.sleep(1)
+    _copy_text(cls.copied)
+    time.sleep(1)
+    _copy_png(_PNG)
+    time.sleep(1.5)
+    _post(BASE, "/test/dictation", {"text": cls.marker})
+    for _ in range(10):
+        time.sleep(1)
+        entry = _last_line()
+        if cls.marker in (entry.get("text") or ""):
+            cls.entry = entry
+            cls.line = entry["line"]
+            return
+        _post(BASE, "/bind", {"tty": _nowhere()})
+    _never_arrived()
+
+
+def _copied_teardown(cls):
+    try:
+        if getattr(cls, "saved", None):
+            _post(BASE, "/test/auto-attach", cls.saved)
+        if cls.previous:
+            _post(BASE, "/bind", {"tty": cls.previous})
+        else:
+            _post(BASE, "/unbind")
+    except Exception:
+        pass
+    _put_the_relay_down()
+
+
+@unittest.skipIf(BASE is None, "no relay is listening on 8917-8919")
+class CopiedWhilePrompting(unittest.TestCase):
+    """Auto-attach › Everything I Copy (2026-10-15): text copied mid-prompt rides
+    as `[copied …]`, an image as a numbered picture tagged `📋 copied`."""
+
+    @classmethod
+    def setUpClass(cls):
+        _copied_scene(cls, {"selection": True, "screenshot": True, "clipboard": True})
+
+    @classmethod
+    def tearDownClass(cls):
+        _copied_teardown(cls)
+
+    def test_copied_text_rides_as_its_own_token(self):
+        self.assertRegex(self.line, r'\[copied( at \d+:\d\d)?: "%s"' % re.escape(self.copied))
+
+    def test_copied_image_is_a_numbered_picture(self):
+        self.assertRegex(self.line, r"📸[1-9]\d* 📋 copied")
+        shots = [p for p in self.entry.get("paths") or [] if re.search(r"screenshot-[1-9]", p)]
+        self.assertTrue(shots, "no picture beside the context frame in %r" % self.entry.get("paths"))
+        self.assertTrue(os.path.exists(shots[0]))
+
+    def test_the_context_frame_is_still_taken(self):
+        self.assertIn("📸0", self.line)
+
+
+@unittest.skipIf(BASE is None, "no relay is listening on 8917-8919")
+class NothingAutoAttached(unittest.TestCase):
+    """The same scene with all three switches off: no copy, no 📸0."""
+
+    @classmethod
+    def setUpClass(cls):
+        _copied_scene(cls, {"selection": False, "screenshot": False, "clipboard": False})
+
+    @classmethod
+    def tearDownClass(cls):
+        _copied_teardown(cls)
+
+    def test_nothing_copied_rides(self):
+        self.assertNotIn("[copied", self.line)
+        self.assertNotIn("📋 copied", self.line)
+
+    def test_no_context_frame(self):
+        self.assertNotIn("📸0", self.line)
+
+
 def _put_the_relay_down():
     """**Close the dictation this file opened**, whatever happened above.
 

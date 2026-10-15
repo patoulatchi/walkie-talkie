@@ -1173,6 +1173,14 @@ final class StatusItem: NSObject, NSMenuDelegate {
         applyAutosendIcon()
         menu.addItem(autosend)
 
+        // **📎 What a prompt picks up by itself** (2026-10-15) — three switches
+        // under one arrow: the highlight, the frame at the start, anything copied.
+        autoAttachItem.image = Self.symbolIcon("paperclip")
+        autoAttachItem.submenu = autoAttachSubmenu
+        autoAttachSubmenu.autoenablesItems = false
+        applyAutoAttachRows()
+        menu.addItem(autoAttachItem)
+
         // **📻 A squelch burst when the microphone opens** (2026-10-01), a
         // switch like Autosend, so the same tick-or-blank; off until he ticks it.
         squelch.action = #selector(squelchClicked)
@@ -2275,6 +2283,7 @@ final class StatusItem: NSObject, NSMenuDelegate {
         guard menu === item.menu else { return }
         SessionLabel.refresh()
         applyHeader()
+        applyAutoAttachRows()
         // 🧾 cached for 5 min; a stale one refreshes in the background and the
         // row repaints while the menu is still open.
         ElevenLabsQuota.shared.refreshIfStale()
@@ -2416,6 +2425,32 @@ final class StatusItem: NSObject, NSMenuDelegate {
     }
 
     private let squelch = NSMenuItem(title: StartChime.menuTitle, action: nil, keyEquivalent: "")
+
+    private let autoAttachItem = NSMenuItem(title: "Auto-attach", action: nil, keyEquivalent: "")
+    private let autoAttachSubmenu = NSMenu()
+
+    /// The tick is read from the defaults at every open, so `POST /test/auto-attach`
+    /// and the menu cannot disagree; drawn like every switch here (`checkmark` /
+    /// `blankIcon`, never `NSMenuItem.state`).
+    private func applyAutoAttachRows() {
+        autoAttachSubmenu.removeAllItems()
+        for kind in AutoAttach.Kind.allCases {
+            let row = NSMenuItem(title: kind.title, action: #selector(autoAttachClicked(_:)),
+                                 keyEquivalent: "")
+            row.target = self
+            row.representedObject = kind.rawValue
+            row.toolTip = kind.tooltip
+            row.image = AutoAttach.isOn(kind) ? Self.symbolIcon("checkmark") : Self.blankIcon
+            autoAttachSubmenu.addItem(row)
+        }
+    }
+
+    @objc private func autoAttachClicked(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let kind = AutoAttach.Kind(rawValue: raw) else { return }
+        AutoAttach.set(kind, !AutoAttach.isOn(kind))
+        applyAutoAttachRows()
+    }
 
     @objc private func squelchClicked() {
         StartChime.isOn.toggle()

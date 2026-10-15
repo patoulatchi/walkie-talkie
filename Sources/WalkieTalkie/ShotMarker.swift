@@ -990,15 +990,19 @@ enum ShotMarker {
         /// marker lacked a deliberate 🖱️/✂️ action tag, so I couldn't identify
         /// one taken automatically."* With the marker: 6/6 both models, 78/78
         /// overall, in 155 characters less than the envelope it replaces.
-        static func shot(_ index: Int, mouse: CGPoint?, auto: Bool = false) -> String {
-            "[\(caption(shot: index, mouse: mouse, auto: auto))]"
+        static func shot(_ index: Int, mouse: CGPoint?, auto: Bool = false,
+                         copied: Bool = false) -> String {
+            "[\(caption(shot: index, mouse: mouse, auto: auto, copied: copied))]"
         }
 
         /// The token without its brackets, for a footer row that goes on to say
         /// when (`[📸1🖱️@1204:388 at 0:04]`) — the frame's own words, not a
         /// second notation for them.
-        static func caption(shot index: Int, mouse: CGPoint?, auto: Bool = false) -> String {
-            let tail = auto ? " auto" : ""
+        /// `copied` (2026-10-15): an image he copied while the prompt recorded
+        /// (`AutoAttach.clipboard`) — not a frame of his screen, so no pointer.
+        static func caption(shot index: Int, mouse: CGPoint?, auto: Bool = false,
+                            copied: Bool = false) -> String {
+            let tail = auto ? " auto" : copied ? " 📋 copied" : ""
             guard let mouse = mouse else { return "📸\(index)\(tail)" }
             return "📸\(index)🖱️@\(Int(mouse.x)):\(Int(mouse.y))\(tail)"
         }
@@ -1028,6 +1032,15 @@ enum ShotMarker {
         /// and number, his own keys instead of a highlight. Line breaks kept:
         /// ⌥⏎ in the box was deliberate.
         static func typed(_ text: String) -> String { "[typed: \"\(text)\"]" }
+
+        /// **What he copied while the prompt recorded** (2026-10-15,
+        /// `AutoAttach.clipboard`) — a selection's slot and number, the
+        /// pasteboard instead of the highlight. Files copied in Finder come as
+        /// their paths, one per line.
+        static func copied(_ text: String, app: String?) -> String {
+            guard let app = app, !app.isEmpty else { return "[copied: \"\(text)\"]" }
+            return "[copied: \"\(text)\" from app \(app)]"
+        }
 
         /// The element's *text* inline; its selector and page are the footer's,
         /// because they are long and nobody reads them mid-sentence.

@@ -199,6 +199,23 @@ Covers the shutter: what a shot is named, what travels to the agent, the on-scre
 - Do not hide the overlay's own decorations around a capture — they are not in it (`sharingType`).
 - Read `docs/pointer-line.md` before either building the pointer line or re-deriving it.
 
+## Auto-attach: three switches, and the clipboard (2026-10-15, `AutoAttach.swift`)
+
+- **Menu `Auto-attach ›` — `Selected Text`, `Screenshot at Start`, `Everything I Copy` — all on by
+  default.** Off means *nothing automatic*: Selected Text off gates `probeRecentSelection`, the
+  watcher, the drag-release probe and `finalSelectionRead`; Screenshot off skips 📸0 (and its ripple)
+  but keeps `captureContext`'s booking. **The shutter is never gated** — a press is deliberate.
+- **Everything I Copy polls the change count every 250 ms while `attachable`** (`syncClipboardWatch`,
+  `clipboardQueue`), never the ⌘C key — *Copy Image* has none. Skip the relay's own writes
+  (`PasteboardTimeline.lastOwnCount`) and its probe's ⌘C (`SelectionCapture.probedRecently`); a new
+  synthetic ⌘C anywhere must set that flag too, or its copy files as his. Read only through
+  `CopiedItem.read` (off main, `Clipboard` lock, types first, change-count sandwich).
+- **Text and files → `[copied at m:ss: "…" from app X]`** (`ShotMarker.Token.copied`, rows in
+  `pendingExtraSelections` with source `📋 copied — <window>`, `AppDelegate.copiedWindow`); text
+  already carried as a highlight is not filed again. **An image → `screenshot-N`** via
+  `ScreenCapture.fileImage`, token `📸N 📋 copied` (`ScreenCapture.isCopied`). Journal: *2026-10-15 —
+  📎 Auto-attach*.
+
 ## The film's red border (2026-10-08, `FilmBorder` in `ScreenFilm.swift`)
 
 Victor: *"a red border, not any fade, just a plain red border, a few pixels solid, around the screen
