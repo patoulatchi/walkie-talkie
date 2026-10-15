@@ -100,6 +100,11 @@ Full history and reasoning: docs/journal.md — see the sections named after eac
   `⚠️ <why> — Elgato Wave XLR input gain is at 0%. Turn it up, then recover it from the menu`,
   log `🔇 <why> — <reason>`. A take that quiet still holds his words: ×400 gain brought a 25.8 s
   sentence back through the local model.
+- **`GainGuard` puts the gain back** (same evening, *"I'd like to prevent it"*): every 2 s the
+  recorded device's input volume is read; ≥ 5 % is remembered per device name (`UserDefaults`
+  `gainGuard.level.<name>`), < 5 % is set back to it with the flash `🎚️ <device> gain fell to N% —
+  put back to M%`. **Mute is said once, never undone** (the XLR's tap-to-mute is often deliberate).
+  To silence the mic on purpose, mute it — turning the knob to zero bounces back within 2 s.
 
 ## Live captions from the local model (2026-10-05, `LocalLiveCaption`)
 

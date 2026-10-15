@@ -1422,6 +1422,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.startAtLogin()
         FromWalkieDevice.set(true, reason: "launch")
         Outbox.prepare()
+        // The recording device's gain is put back when it falls to nothing (2026-10-15).
+        GainGuard.start { [weak self] text in self?.overlay.flash(text, duration: 6) }
         // Synthesised once per Mac and loaded off the main thread — a shutter
         // press must never wait for `say`. → `ShotMarker`
         ShotMarker.prepare()
