@@ -5218,7 +5218,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // recogniser that could not be reached has left the only copy of a
             // sentence he has already said.
             endSettling(reason: why)
-            overlay.flash("⚠️ \(why) — recover it from the menu", duration: 12)
+            // A device turned down to nothing is said first (2026-10-15,
+            // `InputDevice.silencedReason`): Recover cannot fix a take at -60 dB.
+            if let silenced = InputDevice.silencedReason() {
+                Log.error("🔇 \(why) — \(silenced)")
+                overlay.flash("⚠️ \(why) — \(silenced). Turn it up, then recover it from the menu", duration: 12)
+            } else {
+                overlay.flash("⚠️ \(why) — recover it from the menu", duration: 12)
+            }
             if !bg { overlay.setTranscribing(false) }
             if let audio { keepCancelled(wav: audio, duration: duration) }
             clearSpawn()

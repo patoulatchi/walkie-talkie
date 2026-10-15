@@ -91,6 +91,16 @@ Full history and reasoning: docs/journal.md — see the sections named after eac
   wait out a load. `POST /test/dictation` enters *below* the recogniser with a fabricated string, so
   it says nothing about it. → journal: *The recogniser*
 
+## A device turned down to nothing is named (2026-10-15, `InputDevice.silencedReason`)
+
+- The Wave XLR sat at **input volume 0.00** from 19:02 that evening (peak 10–39 vs 5,000–32,000 an
+  hour earlier) and every sentence ended *No words heard* while he talked; nothing in Walkie or
+  Addons writes an input volume (Addons' `CoreAudioManager` only the output scope). Every
+  `.failed` banner now reads the recorded device first: mute on, or volume < 5 %, →
+  `⚠️ <why> — Elgato Wave XLR input gain is at 0%. Turn it up, then recover it from the menu`,
+  log `🔇 <why> — <reason>`. A take that quiet still holds his words: ×400 gain brought a 25.8 s
+  sentence back through the local model.
+
 ## Live captions from the local model (2026-10-05, `LocalLiveCaption`)
 
 Victor: *"Pe stilul Eleven Labs Live Captions … cu ajutorul modelului local … un fel de sliding

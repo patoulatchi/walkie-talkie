@@ -237,6 +237,34 @@ enum InputDevice {
         return (known.first { matches(device, $0) }, device)
     }
 
+    /// **Why a take came back silent, when the device says so itself** (2026-10-15).
+    /// The Wave XLR sat at input volume 0.00 from 19:02 that evening — peak 10–39
+    /// against 5,000–32,000 an hour earlier, ~60 dB down — and every sentence
+    /// ended *No words heard* while he was talking normally; nothing in Walkie or
+    /// Addons sets an input volume, so it was the knob or another app's AGC.
+    /// Victor: *"I didn't realize that was the issue"*. Read at the moment of
+    /// the failure, from the device being recorded: mute on, or input volume
+    /// under 5 %, is named; anything else is nil and the banner stays as it was.
+    static func silencedReason() -> String? {
+        guard let device = resolve().device else { return nil }
+        func read<T>(_ selector: AudioObjectPropertySelector, _ zero: T) -> T? {
+            for element in [kAudioObjectPropertyElementMain, 1] {
+                var address = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioDevicePropertyScopeInput,
+                                                         mElement: element)
+                guard AudioObjectHasProperty(device.id, &address) else { continue }
+                var value = zero
+                var size = UInt32(MemoryLayout<T>.size)
+                if AudioObjectGetPropertyData(device.id, &address, 0, nil, &size, &value) == noErr { return value }
+            }
+            return nil
+        }
+        if let mute: UInt32 = read(kAudioDevicePropertyMute, 0), mute != 0 { return "\(device.name) is muted" }
+        if let volume: Float32 = read(kAudioDevicePropertyVolumeScalar, 0), volume < 0.05 {
+            return "\(device.name) input gain is at \(Int((volume * 100).rounded()))%"
+        }
+        return nil
+    }
+
     /// **The glyph the chip wears, or empty** — empty for a device that is none
     /// of `known`, which is the honest answer for the day he records through
     /// Loopback or a headset nobody has named yet.
