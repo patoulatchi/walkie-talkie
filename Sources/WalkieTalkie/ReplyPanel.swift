@@ -44,7 +44,9 @@ enum ReplyPanel {
     /// 400 until 2026-10-09; with the corners resizable a long answer can be
     /// read whole, so only a runaway one is cut.
     static let maxChars = 4000
-    private static let width: CGFloat = 380
+    /// 380 until 2026-10-15 — widened so the ⚡ footer `— Opus 5.5 + 🌐 searched +
+    /// 🧐 adversarial reviewed ✏️` (~400 pt) stays on one line.
+    private static let width: CGFloat = 450
     /// **Every corner resizes it** (2026-10-09, Victor: *"make the dialog window
     /// … resizable by the right or left bottom corner? Actually all the corners
     /// … in case there's a longer response"*). The size he dragged it to, kept

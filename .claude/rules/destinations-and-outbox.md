@@ -359,3 +359,8 @@ can"*, on his subscription; *"the key to bind it to. I think forward and left"*.
   footer's steps read `🌐 searching…` / `🌐 searched` (*"put the globe to mean searching internet"*)
   and `🧐 adversarial reviewing…` / `🧐 adversarial reviewed` (*"instead of reviewed, say adversarial
   reviewed"*) — the 🔎 / `reviewed` wording above is superseded.
+
+- **`+` between the footer's steps, and a 450 pt pop-up** (2026-10-15, Victor: *"make it just a bit
+  wider so that adversarial review fits … replace the dot between them with a plus"*): `— Opus 5.5 +
+  🌐 searched + 🧐 adversarial reviewed ✏️` measures ~391–403 pt at 15 pt (Opus/Sonnet); the body is
+  `width − 42`, so 380 wrapped it and 450 holds it on one line. The `·` above is superseded.

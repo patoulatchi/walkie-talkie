@@ -6218,13 +6218,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // reviewed, say adversarial reviewed"*, 2026-10-14), the running one's dots animated
         // (`ReplyPanel.dots`); ✏️ after a step that changed the answer. **🌐, not
         // 🔎** (2026-10-14, Victor: *"stick with searching and then put the globe
-        // to mean searching internet"*).
+        // to mean searching internet"*). **`+` between the steps, not `·`**
+        // (2026-10-15, Victor: *"replace the dot between them with a plus"*).
         var answer = Self.quickPlaceholder, signature = QuickAsk.shared.answererName
         var steps: [String] = []
         var searched: String?, reviewed: String?
         func compose() -> String {
             guard !signature.isEmpty else { return answer }
-            return answer + "\n— " + ([signature] + steps).joined(separator: " · ")
+            return answer + "\n— " + ([signature] + steps).joined(separator: " + ")
         }
         // **The pop-up opens the moment he has asked** (2026-10-14, Victor:
         // *"immediately after asking a question, the reply window should
