@@ -468,6 +468,7 @@ final class ElementPicker {
     /// `POST /test/quick {"text": "…", "wait": true}` — a ⚡ quick question
     /// from a desk, words given instead of spoken (2026-10-09, `QuickAsk`).
     var onTestQuick: (([String: Any]) -> (Int, [String: Any]))?
+    var onAsk: (([String: Any]) -> (Int, [String: Any]))?
 
     /// `POST /test/input {"name": "…"}` — point the **system's** default input at
     /// a device, and say what it was before.
@@ -1310,6 +1311,16 @@ final class ElementPicker {
         case ("POST", "/reply"):
             let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] ?? [:]
             guard let hook = onReply else { return respond(conn, 503, ["ok": false, "error": "no handler"]) }
+            let (code, answer) = hook(body)
+            respond(conn, code, answer)
+
+        // **A question another app asks for him** (2026-10-15): the addons
+        // app's 🔬 Fact-check hands over what was just said in the room.
+        // `text` is the pop-up's header, `prompt` what the model is asked.
+        // Token-gated like `/reply`, for the same reason.
+        case ("POST", "/ask"):
+            let body = (try? JSONSerialization.jsonObject(with: request.body)) as? [String: Any] ?? [:]
+            guard let hook = onAsk else { return respond(conn, 503, ["ok": false, "error": "no handler"]) }
             let (code, answer) = hook(body)
             respond(conn, code, answer)
 

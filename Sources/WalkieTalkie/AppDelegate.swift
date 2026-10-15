@@ -2087,6 +2087,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // **⚡ A quick question from a desk** (2026-10-09): the words, as if
         // dictated after 🔼 ←. `wait: true` answers when the answer is complete,
         // with the two clocks `evals/quick-ask/` measures.
+        // **🔬 A fact-check from the addons app** (2026-10-15, Victor: *"this
+        // discussion was overheard … answer it in the same way that you would
+        // answer a question"*): the ⚡ quick question, its header and its prompt
+        // supplied by the caller. Fire-and-forget: the answer is the pop-up.
+        picker.onAsk = { [weak self] body in
+            guard body["token"] as? String == Self.replyToken else {
+                Log.error("⚡ POST /ask refused — wrong or missing token")
+                return (403, ["ok": false, "error": "token"])
+            }
+            guard let self, let text = body["text"] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return (400, ["ok": false, "error": "text"]) }
+            let prompt = body["prompt"] as? String
+            Log.info("⚡ asked by another app: \(text.prefix(80))")
+            DispatchQueue.main.async { self.askQuick(text, prompt: prompt) }
+            return (200, ["ok": true])
+        }
         picker.onTestQuick = { [weak self] body in
             // `capturable` alone just flips the switch — every reply pop-up after
             // it shows up in a screenshot (agents' answers included).
