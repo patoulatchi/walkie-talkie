@@ -1667,16 +1667,32 @@ final class StatusItem: NSObject, NSMenuDelegate {
     /// this model picked.
     private func addLocalModelRows() {
         let picked = WhisperModels.selected
-        for option in WhisperModels.options() {
+        let options = WhisperModels.options()
+        let best = Self.mostAccurate(options)
+        for option in options {
             let mine = option.id == picked
             let row = NSMenuItem(title: Self.localRowTitle(option, loading: mine && engineLoading),
                                  action: #selector(localModelPicked(_:)), keyEquivalent: "")
+            if option.id == best {
+                let title = NSMutableAttributedString(string: row.title, attributes: [.font: NSFont.menuFont(ofSize: 0)])
+                title.append(NSAttributedString(string: " ★", attributes: [.font: NSFont.menuFont(ofSize: 0),
+                                                                          .foregroundColor: NSColor.secondaryLabelColor]))
+                row.attributedTitle = title
+            }
             row.target = self
             row.representedObject = option.id
             row.toolTip = option.details + (mine ? "\n" + engineDetails("whisper") : "")
             row.image = engineId == "whisper" && mine ? Self.symbolIcon("checkmark") : Self.blankIcon
             engineSubmenu.addItem(row)
         }
+    }
+
+    /// **A grey ★ after the most accurate local model** (2026-10-15, Victor: *"put a star after the
+    /// … local large LoRA in the engine selection … because right now [I'm] using … not the large
+    /// one"*) — the lowest held-out WER on a `model-card.json` (Local LoRA Large, 14.0 % vs the
+    /// turbo LoRA's 15.3 %), so the row he would switch to for accuracy is marked whichever is picked.
+    static func mostAccurate(_ options: [WhisperModels.Option]) -> String? {
+        options.compactMap { o in o.card?.werAfter.map { (o.id, $0) } }.min { $0.1 < $1.1 }?.0
     }
 
     /// `💻 <model name>` — `💻 v3-turbo`, `💻 v3-turbo-victor` (2026-10-03, Victor:
