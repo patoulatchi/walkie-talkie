@@ -52,9 +52,11 @@ import QuartzCore
 /// click-through, and keeps `sharingType = .none`, so no screenshot sees it.
 final class DropArrow {
 
-    /// The pin's height — the chip's is 18 (`RelayWindow.pinGlyph`); this is the
-    /// size of the marker Google Maps drops, readable from across a desk.
-    private static let pinHeight: CGFloat = 46
+    /// The pin's height — the chip's is 18 (`RelayWindow.pinGlyph`). 46 pt at
+    /// first, the size of the marker Google Maps drops; **92 since 2026-10-15**,
+    /// Victor: *"make the [pin] that is displayed when I dictate a prompt at the
+    /// caret two times larger"*.
+    private static let pinHeight: CGFloat = 92
     /// From the caret line's middle to its top — where the tip sits. Half a
     /// typical 15–18 pt editor line.
     private static let tipLift: CGFloat = 8
@@ -73,7 +75,7 @@ final class DropArrow {
 
     /// **Larger while the words are in flight** (the heads' 2026-09-22 rule:
     /// the moment with a deadline in it must not look like the one without).
-    /// ×2 doubled three thin Vs; a 46 pt pin doubled is a thing in the way, so
+    /// ×2 doubled three thin Vs; a 92 pt pin doubled is a thing in the way, so
     /// ×1.3 — about the tip, so the point does not move off the caret.
     static let holdScale: CGFloat = 1.3
 

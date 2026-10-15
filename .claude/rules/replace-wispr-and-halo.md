@@ -308,7 +308,7 @@ tell that visually somehow"*. **Supersedes the six heads** in the two sections a
 (their schedule stands; what it drives changed).
 
 - **`DropArrow` draws the pin now** (name kept, every entry point kept): `Glyphs.mapPinShape` — the
-  chip's `caret` glyph, shared with `Glyphs.mapPin` — 46 pt, red with a dark rim and a short black
+  chip's `caret` glyph, shared with `Glyphs.mapPin` — 92 pt (46 until 2026-10-15, *"two times larger"*), red with a dark rim and a short black
   shadow, **its tip `tipLift` 8 pt above `headsAt`** (the caret line's middle), so it stands on the
   line. Placed by `CaretHalo.placeHeads` on every `FocusFrame` reading (5 Hz) and pointer event.
 - **Up for the whole caret sentence**, not only the silence: `refresh(quiet:)` shows it plain while
