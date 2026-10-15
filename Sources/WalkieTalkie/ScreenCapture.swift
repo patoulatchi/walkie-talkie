@@ -524,7 +524,7 @@ enum ScreenCapture {
 
     /// The frame's real size in pixels, read from the JPEG header — no decode,
     /// so this costs nothing next to the capture it follows.
-    private static func pixelSize(of file: URL) -> CGSize? {
+    static func pixelSize(of file: URL) -> CGSize? {
         guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = props[kCGImagePropertyPixelWidth] as? CGFloat,

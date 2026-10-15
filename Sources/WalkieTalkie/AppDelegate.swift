@@ -10979,7 +10979,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // (2026-09-24) — see `CropSelectionOverlay.Selection.movedTo`.
         allowsMove: true,
         // ⇧ or one right click (2026-10-07) — both lock the box.
-        moveToSuffix: "⇧ / right-click move to")
+        moveToSuffix: "⇧ / right-click move to",
+        // From red to green, a white arrow between (2026-10-15) — the same three
+        // colours `AreaContext` draws on the preview's whole-screen thumbnail.
+        moveSourceColor: AreaContext.sourceColor,
+        moveDestinationColor: AreaContext.destinationColor,
+        moveArrowColor: AreaContext.arrowColor)
 
     /// **The wheel, dragged while he is talking: a region of the screen instead
     /// of the whole display.**
@@ -11889,9 +11894,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // panel to draw in place (2026-10-07): the cut-out of an area, the
             // agent's 800 px copy of anything else.
             var inlineShots: [Int: String] = [:]
+            // And for a ✂️ area, the whole frame it was cut from (2026-10-15) —
+            // the panel draws it greyed beside the cut-out (`AreaContext`).
+            var inlineFrames: [Int: (path: String, pixels: CGSize)] = [:]
             for path in frames {
                 guard let n = ScreenCapture.number(of: path) else { continue }
                 inlineShots[n] = ScreenCapture.zoom(for: path) ?? ScreenCapture.handover(for: path)
+                if ScreenCapture.isArea(path), let pixels = ScreenCapture.pixelSize(of: URL(fileURLWithPath: path)) {
+                    inlineFrames[n] = (ScreenCapture.handover(for: path), pixels)
+                }
             }
             if self.overlay.showSentPrompt(shown, hold: hold, shots: frames,
                                            stamps: stamps,
@@ -11902,6 +11913,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                            words: text, warning: warning,
                                            heard: kind == "dictation" ? heard : nil,
                                            inlineShots: inlineShots,
+                                           inlineFrames: inlineFrames,
                                            films: message.films.compactMap { f in
                                                f.poster.map { (poster: $0.path, seconds: f.duration) }
                                            },

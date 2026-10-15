@@ -421,6 +421,11 @@ private let heardLabel = NSTextField(labelWithString: "")
     /// a ✂️ area, the 800 px frame otherwise). A frame whose token is in the words
     /// is drawn there and leaves the strip; the rest stay in the strip.
     private var promptInlineShots: [Int: String] = [:]
+    /// **The whole frame behind each ✂️ cut-out** (2026-10-15): shot number →
+    /// the 800 px copy and the original's size in pixels (what the token's
+    /// corners are measured in). `richPrompt` draws it after the cut-out,
+    /// greyed outside the box — `AreaContext`.
+    private var promptInlineFrames: [Int: (path: String, pixels: CGSize)] = [:]
     /// **The screen recordings riding with the held prompt** (2026-10-08, Victor:
     /// *"when I send the movie, it doesn't show up into the preview panel … show
     /// it … at the end, just like a picture, but with a red dot visible and a
@@ -3058,6 +3063,13 @@ private let heardLabel = NSTextField(labelWithString: "")
                 attachment.bounds = NSRect(x: 0, y: 0, width: (image.size.width * scale).rounded(),
                                            height: (image.size.height * scale).rounded())
                 let pic = NSMutableAttributedString(attachment: attachment)
+                // A ✂️ area: the whole screen it was cut from, after it on the
+                // same line — greyed outside the box, the box ringed red (and a
+                // move's destination green, the arrow white). `AreaContext`.
+                if let context = areaContext(shot: n, token: raw, width: width) {
+                    pic.append(NSAttributedString(string: "  ", attributes: body))
+                    pic.append(NSAttributedString(attachment: context))
+                }
                 pic.append(NSAttributedString(string: "\n", attributes: body))
                 pic.addAttribute(.paragraphStyle, value: picture, range: NSRange(location: 0, length: pic.length))
                 out.append(pic)
@@ -3078,6 +3090,22 @@ private let heardLabel = NSTextField(labelWithString: "")
         // A token as the last thing leaves a newline under it: one empty line of panel.
         while out.string.last == "\n" { out.deleteCharacters(in: NSRange(location: out.length - 1, length: 1)) }
         return out
+    }
+
+    /// The whole-screen thumbnail for a ✂️ token, capped like every picture in
+    /// the words — nil for a token that is not an area or a frame not on disk.
+    private func areaContext(shot n: Int, token: String, width: CGFloat) -> NSTextAttachment? {
+        guard let frame = promptInlineFrames[n], let corners = AreaContext.corners(in: token),
+              let image = NSImage(contentsOfFile: frame.path), image.size.width > 0, image.size.height > 0
+        else { return nil }
+        let scale = min(1, width * Self.inlineShotMaxWidthShare / image.size.width,
+                        Self.inlineShotMaxHeight / image.size.height)
+        let size = NSSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
+        let attachment = NSTextAttachment()
+        attachment.image = AreaContext.image(frame: image, pixels: frame.pixels, box: corners.box,
+                                             movedTo: corners.movedTo, size: size)
+        attachment.bounds = NSRect(origin: .zero, size: size)
+        return attachment
     }
 
     private func layoutShots(width: CGFloat) -> CGFloat {
@@ -4873,6 +4901,7 @@ private let heardLabel = NSTextField(labelWithString: "")
                         words: String? = nil, warning: String? = nil,
                         heard: String? = nil,
                         inlineShots: [Int: String] = [:],
+                        inlineFrames: [Int: (path: String, pixels: CGSize)] = [:],
                         films: [(poster: String, seconds: TimeInterval)] = [],
                         buttons: Bool = true, spawning: Bool = false) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -4925,6 +4954,7 @@ private let heardLabel = NSTextField(labelWithString: "")
             (path: $0.element, stamp: $0.offset < stamps.count ? stamps[$0.offset] : "")
         }
         promptInlineShots = inlineShots
+        promptInlineFrames = inlineFrames
         promptFilms = films
         promptSelection = quoted
         // Handed in with the prompt rather than through a setter of its own:
@@ -5274,6 +5304,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         promptSpawning = false
         promptShots = []
         promptInlineShots = [:]
+        promptInlineFrames = [:]
         promptFilms = []
         promptSelection = nil
         promptWarning = nil

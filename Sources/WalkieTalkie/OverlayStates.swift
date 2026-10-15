@@ -567,6 +567,40 @@ enum OverlayStates {
                                  inlineShots: [1: frames[1], 2: frames[2]])
             },
 
+            Shot(slug: "prompt-area-context", group: "The held prompt", title: "The prompt, a ✂️ area and the screen it was cut from",
+                 when: "A wheel-drag area whose token is in the words.",
+                 note: "2026-10-15, Victor: after the cut-out, the whole screen that goes with it — greyed outside the box, the box lit and ringed red — so it is plain that the entire screen is sent too. Drawn by `AreaContext`, never written to disk.",
+                 shape: "panel", alpha: 1.0) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ petclinic — Fix the tax rounding", icon: terminal)
+                let frames = mockShots(2)
+                // The mock is drawn at 320 × 200 pt; its PNG may be 2× on a Retina.
+                let pixels = ScreenCapture.pixelSize(of: URL(fileURLWithPath: frames[1])) ?? CGSize(width: 320, height: 200)
+                let k = pixels.width / 320
+                let box = CGRect(x: 18 * k, y: 50 * k, width: 200 * k, height: 70 * k)
+                let said = "make this heading bold \(ShotMarker.Token.area(1, box)) and align it left."
+                o.showSentPrompt(said, hold: 6, shots: frames, stamps: ["", "0:04"],
+                                 words: said, heard: heard,
+                                 inlineShots: [1: mockCut(frames[1], box) ?? frames[1]],
+                                 inlineFrames: [1: (frames[1], pixels)])
+            },
+
+            Shot(slug: "prompt-move-context", group: "The held prompt", title: "The prompt, a ⇧-drag move: red to green",
+                 when: "A wheel-drag area with ⇧ / right-click, then a second box: *this, moved to there*.",
+                 note: "2026-10-15, Victor: the whole screen in a thumbnail, the first box red, the second green, a white arrow from red to green — the same three colours the live overlay draws while he makes the gesture.",
+                 shape: "panel", alpha: 1.0) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ petclinic — Fix the tax rounding", icon: terminal)
+                let frames = mockShots(2)
+                let pixels = ScreenCapture.pixelSize(of: URL(fileURLWithPath: frames[1])) ?? CGSize(width: 320, height: 200)
+                let k = pixels.width / 320
+                let box = CGRect(x: 18 * k, y: 50 * k, width: 150 * k, height: 50 * k)
+                let to = CGRect(x: 150 * k, y: 130 * k, width: 150 * k, height: 50 * k)
+                let said = "move this block \(ShotMarker.Token.area(1, box, movedTo: to)) down to the footer."
+                o.showSentPrompt(said, hold: 6, shots: frames, stamps: ["", "0:06"],
+                                 words: said, heard: heard,
+                                 inlineShots: [1: mockCut(frames[1], box) ?? frames[1]],
+                                 inlineFrames: [1: (frames[1], pixels)])
+            },
+
             Shot(slug: "prompt-selection", group: "The held prompt", title: "The prompt, with a quoted highlight",
                  when: "The dictation carried a selection.",
                  note: "Set as a quotation — big mark, one line, ellipsis — rather than folded into the words, which made the passage he is approving indistinguishable from the sentence he spoke about it. One line on purpose: a selection can be a whole file.",
@@ -757,6 +791,19 @@ enum OverlayStates {
     /// Stand-in frames for the strip. Drawn rather than borrowed from a real
     /// dictation: the shots that ride with a prompt are pictures of Victor's
     /// screen, and a documentation page is the last place they belong.
+    /// A cut-out of a mock frame, beside it as `screenshot-N.png` — the
+    /// rectangle in the frame's pixels, top-left origin, like a real area.
+    private static func mockCut(_ frame: String, _ box: CGRect) -> String? {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: frame) as CFURL, nil),
+              let full = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let cut = full.cropping(to: box) else { return nil }
+        let path = frame.replacingOccurrences(of: "-original.png", with: ".png")
+        let rep = NSBitmapImageRep(cgImage: cut)
+        guard let png = rep.representation(using: .png, properties: [:]),
+              (try? png.write(to: URL(fileURLWithPath: path))) != nil else { return nil }
+        return path
+    }
+
     private static func mockShots(_ count: Int) -> [String] {
         let dir = NSTemporaryDirectory() + "walkie-state-shots"
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)

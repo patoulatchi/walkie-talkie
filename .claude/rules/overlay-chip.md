@@ -430,6 +430,17 @@ yields to `--label`).
   2026-10-07 — by path the cut-out never equalled the frame, so every inlined picture came back in the strip); the
   automatic 📸0 is not in the preview's words, so it stays there. Editing swaps back to the plain
   words. Shot `prompt-inline`.
+- **A ✂️ area brings the whole screen with it** (2026-10-15, Victor: *"put after them a picture of the
+  entire screen … grayed out the rest and highlighting … the area that was selected … bordered in a
+  bit of red rectangle, so it's clear that I'm sending also the entire screen"*). After the cut-out,
+  on the same line, `RelayWindow.areaContext` draws the frame's 800 px copy greyed (`AreaContext`,
+  black 62 %) with the box clear and ringed red, 2 pt; **a ⇧-drag move** clears both boxes, rings the
+  destination green and draws a white arrow (dark halo) centre to centre — the live overlay's colours.
+  The corners come out of the token itself (`AreaContext.corners`), scaled by the original's pixel
+  width (`AppDelegate` hands `inlineFrames: [N: (800 px path, original pixels)]` for area frames
+  only). Drawn, never written: the agent's files are unchanged. Same caps as every inline picture.
+  Shots `prompt-area-context`, `prompt-move-context`; `AREA_CONTEXT_PNG=<dir> swift test --filter
+  AreaContextTests` renders both drawings.
 - **A screen recording rides the strip, last, as a picture** (2026-10-08, Victor: *"when I send the
   movie, it doesn't show up into the preview panel … show it … at the end, just like a picture, but
   with a red dot visible and a length displayed on top of it"*). `ScreenFilm.stop` writes
