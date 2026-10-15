@@ -48,7 +48,7 @@ import AppKit
 /// ```
 ///
 /// Above the line is `PinnedProjects`, which is his own decision and survives
-/// everything. Below it is `RecentProjects` — the five repos he has burned the
+/// everything. Below it was `RecentProjects` (until 2026-10-15) — the five repos he has burned the
 /// most tokens in over the last fortnight, read off Claude Code's own
 /// transcripts by `helpers/recent_projects.py`. **The star moves a row between
 /// the two**, and clicking one does *not* close the menu: it is a change to what
@@ -63,7 +63,7 @@ import AppKit
 /// **Unpinning is not a delete.** A row taken off the pinned half falls into the
 /// recent half if it qualifies, and disappears if it does not — *"acel proiect
 /// să apară în lista de proiecte recente, doar dacă am deschis recent în acel
-/// folder vreo muncă"*. That is `RecentProjects.offered` with the pin removed,
+/// folder vreo muncă"*. That was `RecentProjects.offered` with the pin removed,
 /// and it needs no code of its own here: the qualification is already what the
 /// bottom half means.
 ///
@@ -125,6 +125,26 @@ import AppKit
 /// drawn at once (`lastSessions`) and the menu is relaid out only if the fresh
 /// look finds them changed — rows appearing under the hand is the price, paid
 /// once, on the opening after a session starts or ends.
+///
+/// # Workspace, instead of the recent half (2026-10-15)
+///
+/// ```
+///   ✨ walkie-talkie                 ★
+///   ─────────────────────────────       ┌──────────────────────────┐
+///   Workspace                     ›     │ Last day                 │
+///                                       │ ✨ kafka-playground    ☆ │
+///                                       │ Last week                │
+///                                       │ ✨ agentic.how         ☆ │
+/// ```
+///
+/// Victor: *"I never used the last section of projects under the last line …
+/// instead, put a menu called Workspace, in which then you present all the
+/// projects … except those already present in the list … group them in
+/// sections … the last day, then … the last week, and the last month … inside
+/// each section … ascending by name … And again with a star to get them onto the
+/// main list"*. The five transcript-ranked recents are gone; the last row opens
+/// `WorkspaceFolders`' sections. A click there opens a session in that folder;
+/// its star pins it, which moves it onto the menu and leaves the submenu open.
 enum SpawnFolderMenu {
 
     /// One row: the folder it opens, where that is, and which side of the line
@@ -143,27 +163,25 @@ enum SpawnFolderMenu {
         var busy: Bool = false
     }
 
-    /// **The rows, in the order they are drawn**: the pinned half first, then
-    /// the recent half, each sorted alphabetically. The separator goes between
-    /// them, and only if both halves have something in them.
+    /// **The folder rows, in the order they are drawn**: the pinned ones,
+    /// alphabetically. Everything else is under *Workspace ›* (`workspaceSections`).
     ///
-    /// **The trust prompt does not apply to either half, and neither half is a
-    /// guess.** The reason the spawn directory was frozen at `~/workspace` is
-    /// that Claude Code stops on *"do you trust this folder"* in a directory it
-    /// has never been started from, which costs the sentence already spoken. A
-    /// pinned folder is one he works in by hand; a recent one is, by
-    /// construction, a folder a Claude Code session has already run in — which
-    /// is the same fact the trust flag records. A folder that no longer exists
-    /// is dropped by both halves rather than offered: the launcher falls back to
-    /// `$HOME` on a failed `cd`, which is the one destination nobody meant.
-    static func rows() -> (pinned: [Choice], recent: [Choice]) {
-        let pins = PinnedProjects.paths()
-        let pinned = pins
+    /// A folder that no longer exists is dropped rather than offered: the
+    /// launcher falls back to `$HOME` on a failed `cd`, which is the one
+    /// destination nobody meant.
+    static func rows() -> [Choice] {
+        PinnedProjects.paths()
             .map { Choice(name: ($0 as NSString).lastPathComponent, path: $0, pinned: true) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let recent = RecentProjects.offered(excluding: Set(pins))
-            .map { Choice(name: $0.name, path: $0.path, pinned: false) }
-        return (pinned, recent)
+    }
+
+    /// *Workspace ›*'s sections from the last scan, the pinned left out; nil
+    /// while no scan has landed yet.
+    static func workspaceSections() -> [(title: String, rows: [Choice])]? {
+        guard let found = WorkspaceFolders.last else { return nil }
+        return WorkspaceFolders.sections(found, excluding: Set(PinnedProjects.paths())).map { group in
+            (group.section.title, group.folders.map { Choice(name: $0.name, path: $0.path) })
+        }
     }
 
     /// **Three and a half seconds solid, then a second of fade — unless the
@@ -212,6 +230,10 @@ enum SpawnFolderMenu {
     /// mirrored, since this hangs off the other side of the cursor.
     private static let gap: CGFloat = 10
 
+    /// The last row, which opens `WorkspaceFolders`' sections.
+    static let workspaceLabel = "Workspace"
+    static let workspaceEmptyLabel = "Workspace — none"
+
     /// It says what the rows are for. Every one of them is a bare folder name,
     /// which is unmistakable once you know what the menu is and says nothing at
     /// all the first three times it appears.
@@ -250,7 +272,12 @@ enum SpawnFolderMenu {
     /// The rows as they are currently drawn. Computed once when the menu opens
     /// and again on every star, so a toggle relays out against what it just
     /// changed rather than re-reading the disk mid-gesture.
-    private static var rendered: (pinned: [Choice], recent: [Choice]) = ([], [])
+    private static var rendered: [Choice] = []
+    /// *Workspace ›*'s rows as they stand, nil until a scan has landed.
+    private static var workspace: [(title: String, rows: [Choice])]?
+    /// The last row, kept so a scan landing can restyle it and the submenu
+    /// knows where to hang.
+    private static weak var workspaceRow: ActiveRow?
     /// **The sessions behind the *Active Terminals* row**, nil until they have
     /// been looked for. Finding them is an `osascript` and a `ps`
     /// (`TerminalBinding.activeAgentSessions`), so it runs **after** the menu is
@@ -326,15 +353,11 @@ enum SpawnFolderMenu {
             return
         }
         hide()
-        // **Ask for a fresh ranking on the way past.** One `stat`, and on the
-        // one day in a hundred it says the file is stale, a detached process
-        // this app never waits on. See `RecentProjects.refreshIfStale`.
-        RecentProjects.refreshIfStale()
         rendered = rows()
+        workspace = workspaceSections()
         boundTTY = bound
         allSessions = lastSessions
         regroup()
-        guard !rendered.pinned.isEmpty || !rendered.recent.isEmpty else { return }
         chosen = pick
 
         let size = measure()
@@ -379,6 +402,15 @@ enum SpawnFolderMenu {
         generation += 1
         startClock()
         fillActive(for: p)
+        // **A fresh scan on the way past, if the last is stale** — never waited
+        // on: the submenu shows the last one, and is redrawn if it is open when
+        // the new one lands.
+        WorkspaceFolders.refreshIfStale { _ in
+            guard panel === p else { return }
+            workspace = workspaceSections()
+            workspaceRow?.update(items: workspace.map { $0.flatMap(\.rows) })
+            if subpanel != nil, let owner = submenuOwner, owner === workspaceRow { openSubmenu(for: owner) }
+        }
     }
 
     /// **Share the live sessions out**: each under the folder row it works in,
@@ -386,7 +418,7 @@ enum SpawnFolderMenu {
     /// they land and again when a star moves the rows.
     private static func regroup() {
         guard let all = allSessions else { active = nil; children = [:]; return }
-        let split = ActiveTerminals.grouped(all, under: (rendered.pinned + rendered.recent).map(\.path))
+        let split = ActiveTerminals.grouped(all, under: rendered.map(\.path))
         active = ActiveTerminals.items(split.rest, boundTTY: boundTTY).map(choice)
         children = split.byFolder.reduce(into: [:]) { out, group in
             out[group.key] = ActiveTerminals.folderItems(group.value, folder: group.key, boundTTY: boundTTY).map(choice)
@@ -424,7 +456,7 @@ enum SpawnFolderMenu {
     private static func showSessions(relayout changed: Bool) {
         if changed { relayout(restartClock: false) }
         activeRow?.update(items: active)
-        if subpanel != nil, let owner = submenuOwner { openSubmenu(for: owner) }
+        if subpanel != nil, let owner = submenuOwner, owner === activeRow { openSubmenu(for: owner) }
     }
 
     /// **The pointer arriving on the menu — or on its submenu — stops the fade;
@@ -544,7 +576,7 @@ enum SpawnFolderMenu {
     // MARK: - Layout
 
     private static func measure() -> NSSize {
-        let all = rendered.pinned + rendered.recent
+        let all = rendered
         let sessions = all.flatMap { children[$0.path] ?? [] }
         // The ✨ in front of every folder name; a session line's indent, tick,
         // icon and name — measured in its own face, and without the star.
@@ -560,17 +592,18 @@ enum SpawnFolderMenu {
         // **Measured for its longest label**, so the answer arriving
         // (`fillActive`) rewrites the row without resizing the panel under the
         // hand. Its chevron sits in the star column.
-        let activeWidth = [ActiveTerminals.label, ActiveTerminals.emptyLabel]
+        let activeWidth = [ActiveTerminals.label, ActiveTerminals.emptyLabel, workspaceLabel, workspaceEmptyLabel]
             .map { ($0 as NSString).size(withAttributes: [.font: rowFont]).width }
             .max() ?? 0
         // The star sits inside every row, so the rows have to be wide enough for
         // the longest name *and* the glyph; the header has no star and is
         // measured on its own.
         let width = max(max(widest, activeWidth) + starGap + starSize, headerWidth) + 2 * (pad + rowInset)
-        let divider = (rendered.pinned.isEmpty || rendered.recent.isEmpty) ? 0 : separatorHeight
-        // *Active Terminals* and the line under it.
+        // *Active Terminals* and the line under it; *Workspace* and the line
+        // over it.
         let top = rowHeight + separatorHeight
-        let height = 2 * pad + top + headerHeight + CGFloat(all.count) * rowHeight + divider
+        let bottom = separatorHeight + rowHeight
+        let height = 2 * pad + top + headerHeight + CGFloat(all.count) * rowHeight + bottom
             + CGFloat(sessions.count) * sessionHeight
         return NSSize(width: ceil(width), height: ceil(height))
     }
@@ -580,16 +613,14 @@ enum SpawnFolderMenu {
         root.onHover = { SpawnFolderMenu.setHovered($0) }
         addSurface(to: root)
 
-        // Cocoa's y grows upwards, so the groups are laid out bottom-up — the
-        // recent half first, then the line, then the pinned half, the header,
-        // and *Active Terminals* ends up on top.
+        // Cocoa's y grows upwards, so the groups are laid out bottom-up —
+        // *Workspace* first, then the line, then the pinned folders, the
+        // header, and *Active Terminals* ends up on top.
         folderRows = [:]
         var y = pad
-        for choice in rendered.recent.reversed() { y = add(choice, at: y, size: size, to: root) }
-        if !rendered.pinned.isEmpty && !rendered.recent.isEmpty {
-            y = addSeparator(at: y, size: size, to: root)
-        }
-        for choice in rendered.pinned.reversed() { y = add(choice, at: y, size: size, to: root) }
+        y = addWorkspaceRow(at: y, size: size, to: root)
+        y = addSeparator(at: y, size: size, to: root)
+        for choice in rendered.reversed() { y = add(choice, at: y, size: size, to: root) }
         y = addHeader(header, at: y, size: size, to: root)
         y = addSeparator(at: y, size: size, to: root)
         // **First, always** — with nothing behind it, dimmed rather than hidden
@@ -621,6 +652,18 @@ enum SpawnFolderMenu {
         row.onEnter = { [weak row] in if let row { SpawnFolderMenu.openSubmenu(for: row) } }
         root.addSubview(row)
         activeRow = row
+        return y + rowHeight
+    }
+
+    /// The last row: *Workspace ›*, drawn like *Active Terminals* — dimmed
+    /// `Workspace — none` when the scan found nothing unpinned this month.
+    private static func addWorkspaceRow(at y: CGFloat, size: NSSize, to root: NSView) -> CGFloat {
+        let row = ActiveRow(frame: NSRect(x: pad, y: y, width: size.width - 2 * pad, height: rowHeight),
+                            font: rowFont, label: workspaceLabel, emptyLabel: workspaceEmptyLabel)
+        row.update(items: workspace.map { $0.flatMap(\.rows) })
+        row.onEnter = { [weak row] in if let row { SpawnFolderMenu.openSubmenu(for: row) } }
+        root.addSubview(row)
+        workspaceRow = row
         return y + rowHeight
     }
 
@@ -685,21 +728,23 @@ enum SpawnFolderMenu {
         submenuClose?.cancel()
         submenuClose = nil
         guard let p = panel, let window = owner.window else { return }
-        // Only *Active Terminals* has one since 2026-10-09 — a folder's sessions
-        // are lines under it.
+        // Only *Active Terminals* and *Workspace* have one since 2026-10-09 — a
+        // folder's sessions are lines under it.
         guard owner is ActiveRow else { closeSubmenu(); return }
-        let items = active
+        let isWorkspace = owner === workspaceRow
         // Nothing to offer: the row says so and opens nothing.
-        if let found = items, found.isEmpty { closeSubmenu(); return }
+        if isWorkspace, let sections = workspace, sections.isEmpty { closeSubmenu(); return }
+        if !isWorkspace, let found = active, found.isEmpty { closeSubmenu(); return }
         if submenuOwner !== owner { setOpen(submenuOwner, false) }
         submenuOwner = owner
         setOpen(owner, true)
         let row = owner
-        let content = buildSubmenu(items)
-        let size = content.frame.size
-        let rowTop = window.convertToScreen(row.convert(row.bounds, to: nil)).maxY
         let screen = NSScreen.screens.first { $0.frame.intersects(p.frame) } ?? NSScreen.main
         let visible = screen?.visibleFrame ?? p.frame
+        let content = isWorkspace ? buildWorkspaceSubmenu(workspace, maxHeight: visible.height)
+                                  : buildSubmenu(active)
+        let size = content.frame.size
+        let rowTop = window.convertToScreen(row.convert(row.bounds, to: nil)).maxY
         var x = p.frame.maxX - 2
         if x + size.width > visible.maxX { x = p.frame.minX + 2 - size.width }
         x = max(visible.minX, min(x, visible.maxX - size.width))
@@ -784,6 +829,59 @@ enum SpawnFolderMenu {
         return root
     }
 
+    /// **`WorkspaceFolders`' sections**, each under a small title, its rows a
+    /// folder with ✨ and a star — the menu's own folder rows in the session
+    /// lines' smaller face, since a month can hold forty of them. One column
+    /// while it fits on the screen (`maxHeight`), a column per section once it
+    /// does not. `Looking…` until the first scan has landed.
+    private static func buildWorkspaceSubmenu(_ sections: [(title: String, rows: [Choice])]?,
+                                              maxHeight: CGFloat) -> NSView {
+        guard let sections, !sections.isEmpty else { return buildSubmenu(nil) }
+        let rows = sections.flatMap(\.rows)
+        let widest = min(maxNameWidth, rows
+            .map { ((sparkle + $0.name) as NSString).size(withAttributes: [.font: sessionFont]).width }
+            .max() ?? 0)
+        let titles = sections
+            .map { ($0.title as NSString).size(withAttributes: [.font: headerFont]).width }
+            .max() ?? 0
+        let column = ceil(max(widest + starGap + starSize, titles) + 2 * rowInset)
+        func height(_ group: [(title: String, rows: [Choice])]) -> CGFloat {
+            group.reduce(0) { $0 + headerHeight + CGFloat($1.rows.count) * sessionHeight }
+        }
+        let stacked = height(sections) + 2 * pad <= maxHeight - 2 * gap
+        let columns = stacked ? [sections] : sections.map { [$0] }
+        let size = NSSize(width: 2 * pad + CGFloat(columns.count) * column,
+                          height: ceil(2 * pad + (columns.map(height).max() ?? 0)))
+        let root = HoverRoot(frame: NSRect(origin: .zero, size: size))
+        root.onHover = { SpawnFolderMenu.setHovered($0, submenu: true) }
+        addSurface(to: root)
+        // Top-down this time: the columns are of different heights and all
+        // start under the top edge.
+        for (i, group) in columns.enumerated() {
+            let x = pad + CGFloat(i) * column
+            var top = size.height - pad
+            for section in group {
+                let label = NSTextField(labelWithString: section.title)
+                label.font = headerFont
+                label.textColor = .secondaryLabelColor
+                let h = label.intrinsicContentSize.height
+                label.frame = NSRect(x: x + rowInset, y: top - headerHeight + (headerHeight - h) / 2,
+                                     width: column - 2 * rowInset, height: h)
+                root.addSubview(label)
+                top -= headerHeight
+                for choice in section.rows {
+                    top -= sessionHeight
+                    let row = FolderRow(frame: NSRect(x: x, y: top, width: column, height: sessionHeight),
+                                        choice: choice, font: sessionFont)
+                    row.onClick = { take($0) }
+                    row.onStar = { starred($0, fromWorkspace: true) }
+                    root.addSubview(row)
+                }
+            }
+        }
+        return root
+    }
+
     /// A borderless, non-activating panel above everything — see `show` for
     /// why each of these settings is what it is.
     private static func makePanel() -> NSPanel {
@@ -810,12 +908,18 @@ enum SpawnFolderMenu {
     /// It rebuilds rather than redraws, because the row it was clicked on has
     /// just moved to the other side of the line — which is the visible half of
     /// what a star means, and the only confirmation the gesture gets.
-    private static func starred(_ choice: Choice) {
+    ///
+    /// **A star in *Workspace ›* leaves that submenu open** (2026-10-15): the
+    /// row it was on has moved onto the menu, and the hand is still in the list
+    /// it may want to pin a second folder from.
+    private static func starred(_ choice: Choice, fromWorkspace: Bool = false) {
         PinnedProjects.toggle(choice.path)
         rendered = rows()
+        workspace = workspaceSections()
         // A row may have arrived or gone, and the sessions follow the rows.
         regroup()
         relayout(restartClock: true)
+        if fromWorkspace, let row = workspaceRow { openSubmenu(for: row) }
     }
 
     /// Lay the panel out again around the same top-left corner, and give the
@@ -837,6 +941,7 @@ enum SpawnFolderMenu {
         let size = measure()
         p.contentView = build(size: size)
         activeRow?.update(items: active)
+        workspaceRow?.update(items: workspace.map { $0.flatMap(\.rows) })
         p.setFrame(NSRect(x: anchor.x, y: anchor.y - size.height,
                           width: size.width, height: size.height),
                    display: true)
@@ -1091,6 +1196,9 @@ final class FolderRow: NSView {
 /// when there is nothing running to offer.
 final class ActiveRow: NSView {
     private let font: NSFont
+    /// *Active Terminals* by default; *Workspace* reuses the row (2026-10-15).
+    private let label: String
+    private let emptyLabel: String
     private var hot = false
     /// nil while the sessions are still being looked for.
     private var items: [SpawnFolderMenu.Choice]?
@@ -1100,8 +1208,11 @@ final class ActiveRow: NSView {
 
     private var enabled: Bool { items.map { !$0.isEmpty } ?? true }
 
-    init(frame: NSRect, font: NSFont) {
+    init(frame: NSRect, font: NSFont,
+         label: String = ActiveTerminals.label, emptyLabel: String = ActiveTerminals.emptyLabel) {
         self.font = font
+        self.label = label
+        self.emptyLabel = emptyLabel
         super.init(frame: frame)
     }
 
@@ -1119,8 +1230,7 @@ final class ActiveRow: NSView {
             NSBezierPath(roundedRect: bounds.insetBy(dx: 0, dy: 1), xRadius: 6, yRadius: 6).fill()
         }
         let ink = lit ? NSColor.white : (enabled ? NSColor.labelColor : NSColor.tertiaryLabelColor)
-        let label = enabled ? ActiveTerminals.label : ActiveTerminals.emptyLabel
-        let text = NSAttributedString(string: label, attributes: [.font: font, .foregroundColor: ink])
+        let text = NSAttributedString(string: enabled ? label : emptyLabel, attributes: [.font: font, .foregroundColor: ink])
         text.draw(at: NSPoint(x: SpawnFolderMenu.rowInset, y: (bounds.height - text.size().height) / 2))
         guard enabled, let chevron = Self.chevron else { return }
         // Tinted inside an image of its own, for the reason `StarButton.draw`
@@ -1235,6 +1345,9 @@ extension SpawnFolderMenu {
     /// running the picture is the dimmed `Active Terminals — none` row alone.
     static func shoot(to path: String) {
         rendered = rows()
+        // The scan is waited for here: the picture is of the menu once it has.
+        WorkspaceFolders.adopt(WorkspaceFolders.scan())
+        workspace = workspaceSections()
         // No panel to fill later here, so the sessions are asked for up front —
         // the picture is of the menu once they have landed.
         boundTTY = ProcessInfo.processInfo.environment["WT_SHOOT_BOUND"]
@@ -1246,11 +1359,14 @@ extension SpawnFolderMenu {
         var submenu: NSView?
         // The sessions under the folders are lines of the menu itself; only
         // *Active Terminals* still opens a submenu, drawn open when it has any.
-        let owner: NSView? = (active ?? []).isEmpty ? nil : activeRow
-        let items = active
-        if let row = owner, let items {
+        // `WT_SHOOT_WORKSPACE=1` draws *Workspace ›* open instead.
+        let showWorkspace = ProcessInfo.processInfo.environment["WT_SHOOT_WORKSPACE"] == "1"
+        let owner: NSView? = showWorkspace ? workspaceRow : ((active ?? []).isEmpty ? nil : activeRow)
+        if let row = owner {
             setOpen(row, true)
-            let sub = buildSubmenu(items)
+            let sub = showWorkspace
+                ? buildWorkspaceSubmenu(workspace, maxHeight: NSScreen.main?.visibleFrame.height ?? 1000)
+                : buildSubmenu(active)
             // Right of the menu, its first row level with *Active Terminals* —
             // `openSubmenu`'s geometry, in the menu's own coordinates.
             let top = row.frame.maxY + pad

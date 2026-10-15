@@ -14,7 +14,7 @@ stdio and that pushes `notifications/claude/channel`; the text reaches the model
 `<channel source="walkie">…</channel>`, queued while a turn runs. No keystrokes.
 
 This is that server, stdlib only (Apple's `/usr/bin/python3`, like
-`recent_projects.py`): newline-delimited JSON-RPC on stdin/stdout, plus an HTTP
+`session_search.py`): newline-delimited JSON-RPC on stdin/stdout, plus an HTTP
 listener on a random 127.0.0.1 port. Every session started with
 
     claude --dangerously-load-development-channels server:walkie

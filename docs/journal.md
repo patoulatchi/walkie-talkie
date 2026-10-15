@@ -74,6 +74,7 @@ The journal contradicts itself over time, because it was written as things chang
 - *The ring covers Wispr Flow's dictations too* (2026-09-11) — the ring's half was **silently lost on 09-12** when Wispr became the source, and is restored 2026-09-18 on a different witness (`wisprHearing`, not `WisprWatch`); the section's `atCaret` half is **reversed** — a microphone that is not ours raises the ring and nothing else (*The ring comes back for the dictations he starts himself*)
 - *The folder menu*, *Autosend* — “the app is `.accessory`” — `.regular` with a Dock tile since 2026-09-07 (*The Dock tile is the escape hatch*)
 - *Scope: dictation helper only* — “`canBecomeKey` is false” — the panel becomes key only while the transcript is edited (*⏎ sends it, and clicking the words edits them*)
+- *Two halves, and a line between them (2026-09-08)*, *Where the bottom half comes from* — the five transcript-ranked recents are gone 2026-10-15; the menu's last row is *Workspace ›* (*Workspace instead of the recent half*)
 - *A row carrying `at 0:08` is never folded* and *📸0 leads the words* (2026-09-20 / 2026-09-25) — superseded 2026-09-30 for frames the words do not carry: pointer + clock as a short row under the template, and on Wispr 📸0 is one of them (*On Wispr the prompt starts with his words*)
 
 ## Contents
@@ -15528,3 +15529,25 @@ agent."*
 - Desk: `POST /test/auto-attach`, `state.autoAttach`; `evals/test_envelope.py`
   `CopiedWhilePrompting` / `NothingAutoAttached` (5/5 on the installed build, 13:37).
 
+## 2026-10-15 — Workspace instead of the recent half
+
+Victor, dictating over a spawn: *"I never used the last section of projects under the last line in
+that drop down … So instead, put a menu called Workspace, in which then you present all the
+projects, all the folders in the workspace, except those already present in the list … sorted
+descending by the last modified date of any file within them. Maybe group them in sections. One
+first section to be the ones updated over the last day, then the ones updated over the last week,
+and the last month. And then inside each section … ascending by name … And again with a star to get
+them onto the main list if I want."*
+
+- **The recent half is deleted** — `RecentProjects`, `helpers/recent_projects.py` and its copy in
+  `build-app.sh`. Five repos ranked by tokens burned were never the one he reached for.
+- **`Workspace ›` is the last row**, under a line, drawn by `ActiveRow` with its own labels; its
+  submenu is `WorkspaceFolders.sections` — *Last day* / *Last week* / *Last month*, each by name,
+  pinned left out. A click spawns there; the star pins and keeps the submenu open.
+- **Measured before choosing where it runs**: the newest file of each of ~150 folders is
+  ~290 000 `stat`s — 11.2 s in Python, **8.8 s** in Swift's `FileManager` enumerator, with `.git`,
+  `node_modules`, build outputs and `.idea` not walked and a folder abandoned at its first file
+  younger than a day. Too slow for a 3.5 s menu, so it runs at launch and on any opening whose last
+  scan is over 5 min old, in the background; the submenu shows the last one.
+- **Columns, because a month is ~45 folders** (1 300 px stacked): one column while it fits the
+  screen, a column per section otherwise. Reviewed with `WT_SHOOT_WORKSPACE=1 WT_SHOOT_MENU=…`.

@@ -95,7 +95,7 @@ final class SessionSearch {
         }
         let search = SessionSearch()
         let pipe = Pipe()
-        // Apple's python3 for `RecentProjects`' reason: the helper is pure
+        // Apple's python3, deliberately: the helper is pure
         // standard library, and probing for an interpreter costs more process
         // launches than the scan itself.
         search.process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
@@ -153,7 +153,7 @@ final class SessionSearch {
     }
 
     /// Beside the binary in the installed `.app`, in `helpers/` for a
-    /// `swift build` run — the same walk `RecentProjects` and `Transcriber` do,
+    /// `swift build` run — the same walk `Transcriber` does,
     /// so both ways of running the app find the script without a switch.
     private static var helperPath: String? {
         var candidates: [URL] = []

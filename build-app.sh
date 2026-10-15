@@ -165,10 +165,6 @@ cp "$BIN" "$MACOS/$APP_NAME"
 mkdir -p "$CONTENTS/Resources"
 cp "$DIR/helpers/whisper_helper.py" "$CONTENTS/Resources/whisper_helper.py"
 cp "$DIR/helpers/word_onsets.py" "$CONTENTS/Resources/word_onsets.py"
-# The spawn menu's recent-projects half is measured by this one, run in the
-# background at most once a day. `RecentProjects.helperPath` looks here first and
-# falls back to <repo>/helpers, exactly as the whisper helper does.
-cp "$DIR/helpers/recent_projects.py" "$CONTENTS/Resources/recent_projects.py"
 # The search field on `Rebind to…` runs this one, on a pause in his typing, over
 # Claude Code's session journals. Same two-place lookup as the two above.
 cp "$DIR/helpers/session_search.py" "$CONTENTS/Resources/session_search.py"

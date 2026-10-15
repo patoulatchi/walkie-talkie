@@ -80,7 +80,9 @@ def check(menu: str, delegate: str) -> list[str]:
 
     draw = " ".join(code(function_body(menu.split("final class ActiveRow")[-1],
                                        "override func draw(_ dirtyRect: NSRect)")))
-    if "ActiveTerminals.emptyLabel" not in draw:
+    # The row is shared with *Workspace* since 2026-10-15: the label is a
+    # parameter whose default is *Active Terminals*' own.
+    if "emptyLabel" not in draw or "emptyLabel: String = ActiveTerminals.emptyLabel" not in menu:
         problems.append("`ActiveRow.draw` no longer says `ActiveTerminals.emptyLabel` "
                         "when there is nothing to offer")
 

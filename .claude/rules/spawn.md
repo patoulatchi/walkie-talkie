@@ -4,14 +4,13 @@ paths:
   - "Sources/WalkieTalkie/SpawnFolderMenu.swift"
   - "Sources/WalkieTalkie/ActiveTerminals.swift"
   - "Sources/WalkieTalkie/ProjectList.swift"
-  - "helpers/recent_projects.py"
 ---
 
 # Spawn: dictating to a session that does not exist yet
 
 Rules for the gesture that opens a new Terminal window with Claude Code in it and hands it the
 sentence as its first prompt (`SpawnTerminal`), the folder menu offered while the sentence is being
-spoken (`SpawnFolderMenu`, `ProjectList`, `helpers/recent_projects.py`), where the window opens and
+spoken (`SpawnFolderMenu`, `ProjectList`), where the window opens and
 how the dialog hands over to it.
 Full history and reasoning: docs/journal.md — see the sections named after each rule below.
 
@@ -203,48 +202,36 @@ session to be active right now"*.
 - `WT_SHOOT_MENU` draws the session lines in place and *Active Terminals*' submenu open when it has
   any (`WT_SHOOT_SUB` is gone with the folder submenus).
 
-## Pinned + recent (`ProjectList`, `helpers/recent_projects.py`)
+## Pinned + *Workspace ›* (`ProjectList`) (2026-10-15)
 
-- **The list is pinned projects, a separator, then the five most-worked repos of the last
-  fortnight — never a hardcoded list.** Six names in Swift were right the day they were written
-  and silently wrong the week after; the cost of a missing project is the first sentence of every
-  session, spoken to tell the agent where it is. `~/workspace` holds ~150 directories, nearly all
-  course material, so a listing is not a menu either.
-  → journal: *Two halves, and a line between them (2026-09-08)*
+Victor: *"I never used the last section of projects under the last line … instead, put a menu
+called Workspace, in which then you present all the projects, all the folders in the workspace,
+except those already present in the list … group them in sections … the last day, then … the last
+week, and the last month. And then inside each section … ascending by name … And again with a
+star to get them onto the main list"*.
+
+- **The menu is *Active Terminals*, the pinned folders (`PinnedProjects`), a line, then
+  `Workspace ›`** — the last row, an `ActiveRow` with its own labels (`Workspace — none`, dimmed,
+  when nothing unpinned changed this month). **The five transcript-ranked recents
+  (`RecentProjects`, `helpers/recent_projects.py`, 2026-09-08) are gone** — never used.
 - **`PinnedProjects` is seeded from the six that were hardcoded**, persisted in
   `~/.walkie-talkie/pinned-projects.json`. A pinned folder that is missing is dropped from the menu
-  but **kept in the file** — an external disk or a checkout he will make again should not cost the
-  pin. Only a click removes one.
-  → journal: *The star*
-- **`RecentProjects` comes from `helpers/recent_projects.py`, which reads
-  `~/.claude/projects/*/*.jsonl`.** Three metrics were measured on his real 14-day window —
-  weighted cost (output ×5, cache-creation ×1.25, input ×1, cache-read ×0.1), raw output tokens,
-  prompt count — and **all three name the same top five** (4th and 5th swap). There is nothing to
-  tune; do not spend an afternoon believing there is.
-  → journal: *Where the bottom half comes from*
-- **`cwd` is read per record, not per session; everything under `~/workspace/<x>/` rolls up to
-  `<x>`.** Left alone, `petclinic/petclinic-backend/.codecity-tool` ranked *seventh in its own
-  right*, splitting the project that ranked first; the rollup also makes worktrees
-  (`agentic-how/.claude-worktrees/…`) free. Outside `~/workspace` the git root stands alone;
-  outside `$HOME` nothing counts (`/private/tmp` scratchpads).
-  → journal: *Where the bottom half comes from*
-- **Cheap, no cache, no incremental offset, no model.** ~1 GB across ~800 transcripts scans in
-  **1.9 s** because a line reaches the JSON parser only after a raw byte scan finds `"assistant"`.
-  That is cheap enough to make a cache and a read offset two classes of bug not written.
-  → journal: *Where the bottom half comes from*
-- **Apple's `/usr/bin/python3`, deliberately.** Pure stdlib; `Transcriber.pythonPath`'s probe for
-  an interpreter carrying `mlx_whisper` would cost several process launches for a question this
-  does not ask.
-  → journal: *Where the bottom half comes from*
-- **`RecentProjects.refreshIfStale` runs at most once a day, detached, never waited on — asked at
-  launch and at the gesture.** A single `stat`; a login item can stay up a week (launch is not
-  often enough) and be restarted five times in an afternoon (the age check stops five rescans).
-  The menu that triggers a scan shows yesterday's answer.
-  → journal: *Where the bottom half comes from*
-- **The file holds every qualifying project, not the top five.** The menu takes its five *after*
-  removing the pinned ones, and a pin comes off at any moment — a file of five would make an
-  unpinned project vanish until tomorrow's scan.
-  → journal: *Where the bottom half comes from*
+  but **kept in the file**. Only a click removes one.
+- **`WorkspaceFolders`: every non-hidden, non-symlink folder of `~/workspace` whose newest file is
+  ≤ 31 days old**, bucketed *Last day* (≤ 24 h) / *Last week* (≤ 7 d) / *Last month*, each by
+  name (`localizedStandardCompare`), pinned left out, empty sections dropped
+  (`sections(_:excluding:now:)`, pure, `WorkspaceFoldersTests`).
+- **Not walked: `.git`, `node_modules`, `.build`, `build`, `target`, `.gradle`, `.idea`, `dist`,
+  `out`, `__pycache__`, `.venv`, `venv`, `DerivedData`, `.next`, `.angular`** — what a fetch, an IDE
+  or a build rewrites on its own. A folder stops being walked at its first file younger than a day.
+- **The scan is ~9 s (≈ 290 000 entries, measured 2026-10-15), so it is never at the gesture.**
+  `refreshIfStale` at launch and at every opening, redone when older than 5 min, on a utility
+  queue, kept in memory; the submenu shows the last answer and is rebuilt in place if the new one
+  lands while it is open. Before the first scan lands it says `Looking…`.
+- **The submenu is one column while it fits the screen, a column per section once it does not**
+  (a month is ~45 folders); rows in the session lines' face (15 pt / 24 pt), ✨ + name + star.
+  A click opens a session there; **its star pins it and the submenu stays open**.
+- `WT_SHOOT_WORKSPACE=1` with `WT_SHOOT_MENU` draws it open (the scan is waited for).
 
 ## The star
 
@@ -252,8 +239,8 @@ session to be active right now"*.
   restarts.** A star changes what the menu *is*, not what it asks; a hand that has just arranged the
   list is about to use it.
   → journal: *The star*
-- **Unpinning is not a delete.** The row falls into the recent half if it qualifies and disappears
-  if it does not — `RecentProjects.offered` with the pin removed, no extra code.
+- **Unpinning is not a delete.** The row falls into *Workspace ›* if a file in it changed this month
+  and disappears if not — `WorkspaceFolders.sections` with the pin removed, no extra code.
   → journal: *The star*
 - **Chosen by rank, shown alphabetically — both halves** (*"în ordine descrescătoare după… nu,
   alfabetic"*). A leaderboard that reorders itself between two openings moves the row he reached
@@ -408,7 +395,7 @@ session to be active right now"*.
   spawn.
 - Do not reintroduce `activate` in `SpawnTerminal`, `reversed:` in a spawn flight, or a picture on
   the send flight to an existing terminal.
-- Do not cache or offset-read in `recent_projects.py`, and do not trim its output file to five.
+- Do not scan `~/workspace` at the gesture or on the main thread, and do not put the recent half back.
 - Do not hide *Active Terminals* when nothing is running, move it off the first row, or let a
   pick's words out before its bind lands.
 - Do not make a folder row's click do anything but start a new session, and do not put the folder submenus back.

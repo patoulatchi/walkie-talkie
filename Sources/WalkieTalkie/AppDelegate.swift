@@ -3409,13 +3409,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // not this app's to spend. `startDictation` brings it up on demand when
         // the local source is selected.
 
-        // **And the spawn menu's bottom half, if nobody has measured it today.**
-        // Same shape as the load above and for the same reason: it is a login
-        // item, so the two seconds are free here and would otherwise be charged
-        // to the first spawn of the day. `refreshIfStale` is one `stat` when the
-        // answer is fresh, which is what makes it safe to also ask at the
-        // gesture — see `RecentProjects`.
-        if ProcessInfo.processInfo.environment["RELAY_SHOOT"] == nil { RecentProjects.refreshIfStale() }
+        // **And the spawn menu's *Workspace ›* listing**, in the background: the
+        // ~9 s walk is free here and would otherwise leave the first spawn after
+        // a launch saying `Looking…` — see `WorkspaceFolders`.
+        if ProcessInfo.processInfo.environment["RELAY_SHOOT"] == nil { WorkspaceFolders.refreshIfStale() }
 
         if ProcessInfo.processInfo.environment["RELAY_DEMO"] == "1" { runDemo() }
         // Photograph every state and quit — see `OverlayStates`, and

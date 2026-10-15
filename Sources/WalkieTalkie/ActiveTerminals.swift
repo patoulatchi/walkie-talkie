@@ -108,7 +108,7 @@ enum ActiveTerminals {
     /// are not bound to any, should stay in the first, other active
     /// terminals."* A session belongs to a row when its directory is the row's
     /// folder or inside it (`petclinic/petclinic-backend` → `petclinic`, the
-    /// rollup `recent_projects.py` makes); with two rows nested, the deeper one
+    /// rollup the old `recent_projects.py` made); with two rows nested, the deeper one
     /// wins. Keys are the rows' paths as given.
     static func grouped(_ sessions: [Session], under folders: [String])
         -> (byFolder: [String: [Session]], rest: [Session]) {

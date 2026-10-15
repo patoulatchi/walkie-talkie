@@ -18,7 +18,7 @@ run beside the harvester:
     /usr/bin/python3 helpers/mic_corpus_ingest.py
 
 Stdlib only, and therefore Apple's interpreter — the same call
-`recent_projects.py` makes and for the same reason.
+`session_search.py` makes and for the same reason.
 """
 
 import hashlib
