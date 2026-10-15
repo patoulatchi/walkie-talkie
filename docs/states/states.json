@@ -78,7 +78,7 @@
     "slug" : "spawn",
     "title" : "This sentence opens a new session",
     "when" : "🔼 ↑ — the forward button held, mouse moved up (🛞🛞 with Logi gestures off): the dictation goes to a terminal that does not exist yet.",
-    "width" : 235
+    "width" : 227
   },
   {
     "alpha" : 0.80000000000000004,
@@ -102,7 +102,7 @@
     "slug" : "bind-to-send",
     "title" : "Nothing is bound, and he is talking anyway",
     "when" : "Any dictation started with no terminal bound — which the app refused outright until 2026-09-11, and now holds for the bind that follows it.",
-    "width" : 215
+    "width" : 382
   },
   {
     "alpha" : 0.80000000000000004,
@@ -183,7 +183,7 @@
     "slug" : "listening",
     "title" : "Dictating",
     "when" : "From 🔼 → until he makes it again (🛞 with Logi gestures off) — the bulk of every dictation.",
-    "width" : 308
+    "width" : 362
   },
   {
     "alpha" : 0.80000000000000004,
@@ -267,7 +267,7 @@
     "slug" : "listening-picks",
     "title" : "Dictating, with elements picked",
     "when" : "After the first ⌘⇧-click in Chrome, whatever app he switches to afterwards.",
-    "width" : 308
+    "width" : 362
   },
   {
     "alpha" : 0.80000000000000004,
@@ -308,7 +308,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Dictating",
-    "height" : 117,
+    "height" : 141,
     "image" : "listening-selection-caught.png",
     "note" : "His own words back, on a row that was not there a moment ago — deliberately not a flash, since a flash is a panel and a shutter press must not throw one over the work he is photographing. It said `selecting` in front of them until 2026-09-09, when Victor had the verb removed: the row appearing is the receipt. It collapses to `×N` after four seconds, and it truncates at 34 characters.",
     "shape" : "chip",
@@ -380,7 +380,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Dictating",
-    "height" : 117,
+    "height" : 93,
     "image" : "transcribing-local-now-loading.png",
     "note" : "`(loading)` says the key will not answer at once — not that it will not work. Pressed now, the WAV waits for the weights (up to 90 s, the fallback's own window) and the words go where the sentence was going.",
     "shape" : "chip",
@@ -392,7 +392,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Dictating",
-    "height" : 117,
+    "height" : 93,
     "image" : "transcribing-fallback-countdown.png",
     "note" : "**The countdown is on the row with the keys** (2026-10-07; `💻 local in 3s \/ ⌘⌃X ...` is Victor's own wording, the 💻 in the glyph column — replacing 10-06's `⌘⌃X - 💻 fallback, auto in 3s...`). Victor: *\"put a countdown timer … when the timer expires, the local dictation is automatically injected\"*, then *\"put it like fallback to local in countdown timer and then show the key shortcuts\"*. At the close the relay reads the engine's p95 (`DecodeRate.budget`) and starts the local model `budget − localEta` into the wait, so its words are ready about when the count reaches zero — and then they go in (`via: local-auto`). ⌘⌃X puts them in sooner (`via: local-forced`); the engine's words landing first take the row down and the local ones are discarded. Whole seconds, rounded up; **no engine's name** (*\"don't leak the name of any tool, only the icon\"* — the logo on the first row says which). It replaces the `🤔⏱️` the first row grew past 150 % of the estimate, and 09-29's *offered, never inserted* `Use local`.",
     "shape" : "chip",
@@ -404,7 +404,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Dictating",
-    "height" : 117,
+    "height" : 93,
     "image" : "transcribing-fallback-now.png",
     "note" : "`auto now...`: the local words go in the moment the decode ahead finishes — usually already done at zero, so this frame lasts a few hundred milliseconds at most. A local model that heard nothing leaves the sentence to the engine and the row goes.",
     "shape" : "chip",
@@ -536,7 +536,7 @@
   {
     "alpha" : 0.80000000000000004,
     "group" : "Flashes",
-    "height" : 46,
+    "height" : 70,
     "image" : "flash-accessibility.png",
     "note" : "The state that proves flashes must survive the unbound case: there is no title row above it, because nothing is bound yet, and this is the whole window.",
     "shape" : "flash",
@@ -560,7 +560,7 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
-    "height" : 136,
+    "height" : 160,
     "image" : "prompt.png",
     "note" : "The one thing he must actually read: what the model heard, while Cancel can still stop it. The panel takes only the width the text needs, up to a third of the screen — a four-word dictation in a half-screen window is empty space parked over his work. The last two lines name the microphone that heard it and the engine that wrote it (2026-10-06) — what this sentence actually went through, so a local fallback or ⌘⌃X says so.",
     "shape" : "panel",
@@ -584,7 +584,7 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
-    "height" : 106,
+    "height" : 178,
     "image" : "prompt-autosend-paused.png",
     "note" : "The clock stops for as long as the pointer stays on the panel, and the row flashes use says so — with the two keys that still answer it, since there are no buttons to carry them. Leaving restarts the one-second receipt whole rather than resuming it: resumed, a hover that began at 0.9 s would send the instant the hand let go.",
     "shape" : "panel",
@@ -620,14 +620,38 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
-    "height" : 584,
+    "height" : 616,
     "image" : "prompt-inline.png",
     "note" : "2026-10-07, Victor: the panel must show *where* each thing landed, to check the annotation. A picture token ends its paragraph, captions the picture drawn under it — the ✂️ cut-out, or the frame — and the words carry on below. A highlight or a picked element is its own indented paragraph. Frames the words did not take (here the automatic one) stay in the strip.",
     "shape" : "panel",
     "slug" : "prompt-inline",
     "title" : "The prompt, with its pictures where they were taken",
     "when" : "Word timings placed the markers (ElevenLabs, local): every `[📸N…]` token in the words.",
-    "width" : 749
+    "width" : 832
+  },
+  {
+    "alpha" : 1,
+    "group" : "The held prompt",
+    "height" : 331,
+    "image" : "prompt-area-context.png",
+    "note" : "2026-10-15, Victor: after the cut-out, the whole screen that goes with it — greyed outside the box, the box lit and ringed red — so it is plain that the entire screen is sent too. Drawn by `AreaContext`, never written to disk.",
+    "shape" : "panel",
+    "slug" : "prompt-area-context",
+    "title" : "The prompt, a ✂️ area and the screen it was cut from",
+    "when" : "A wheel-drag area whose token is in the words.",
+    "width" : 509
+  },
+  {
+    "alpha" : 1,
+    "group" : "The held prompt",
+    "height" : 358,
+    "image" : "prompt-move-context.png",
+    "note" : "2026-10-15, Victor: the whole screen in a thumbnail, the first box red, the second green, a white arrow from red to green — the same three colours the live overlay draws while he makes the gesture.",
+    "shape" : "panel",
+    "slug" : "prompt-move-context",
+    "title" : "The prompt, a ⇧-drag move: red to green",
+    "when" : "A wheel-drag area with ⇧ \/ right-click, then a second box: *this, moved to there*.",
+    "width" : 651
   },
   {
     "alpha" : 1,
@@ -656,7 +680,7 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
-    "height" : 261,
+    "height" : 285,
     "image" : "prompt-everything.png",
     "note" : "The tallest the overlay ever gets. Rows in the order the envelope is packed: what he said, what the app thinks of it, what it is carrying, where he was, which microphone and engine heard it — then the two buttons.",
     "shape" : "panel",
@@ -675,7 +699,7 @@
     "slug" : "prompt-long",
     "title" : "A long transcript",
     "when" : "A sentence that does not fit one line — the panel wraps and grows.",
-    "width" : 749
+    "width" : 832
   },
   {
     "alpha" : 1,
