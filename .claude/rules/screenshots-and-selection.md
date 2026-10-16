@@ -224,12 +224,14 @@ Victor: *"a red border, not any fade, just a plain red border, a few pixels soli
 recorded, and blinking 50% transparent to 100% opaque"*. 5 pt `systemRed` round the filmed display
 (**the one under the pointer, re-resolved every frame since 2026-10-16** — `followPointer`; the border
 moves with it via `FilmBorder.move`, and `FilmSheet` aspect-fits frames of different displays), a **hard step** 100 % ↔ 50 % every 0.5 s (discrete keyframes — no
-ease), click-through, `sharingType = .none`. Up at `ScreenFilm.start`, down at `stop` and at the 30 s
-ceiling. Not yet seen in a frame — if `CGDisplayCreateImage` ever draws it, that is the bug to chase.
+ease), click-through, `sharingType = .none`. Up at `ScreenFilm.start`, down at `stop`, at `discard`
+(a cancelled dictation — it stayed up until 2026-10-16) and at the 30 s ceiling.
+**A discrete blink needs `keyTimes` = values + 1** (`[0, 0.5, 1]`): with `[0, 0.5]` CA ignores the
+animation silently, and neither the border nor the dot blinked until 2026-10-16 (`FilmBorderTests`). Not yet seen in a frame — if `CGDisplayCreateImage` ever draws it, that is the bug to chase.
 
 **`● REC` top-right, like a camcorder** (2026-10-13, Victor: *"the record circles in the corners should
 be like three x large and be blinking slowly … say REC … only appear in the top right. To resemble a
-VCR camera"*). One 42 pt red dot (3 × the old 14 pt corner dots, all four gone), a hard step 1 s lit /
-1 s dark (`slowBlink` 2 s), `REC` (40 pt monospaced heavy, red) steady to its right, a dark 3 pt halo
+VCR camera"*). One 50 pt red dot (42 → 50 on 2026-10-16, *"20% larger"*), a hard step 1 s lit /
+1 s dark (`slowBlink` 2 s), `REC` (48 pt monospaced heavy, red, 40 → 48 the same day) steady to its right, a dark 3 pt halo
 on both, under the menu bar. The border blinks on its own layer at its old pace. Review:
 `FILM_BORDER_PNG=<dir> swift test --filter FilmBorderTests`.

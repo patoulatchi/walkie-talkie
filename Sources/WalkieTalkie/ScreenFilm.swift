@@ -202,6 +202,9 @@ final class ScreenFilm {
     func discard() {
         timer?.cancel()
         timer = nil
+        // The border goes with the film (2026-10-16, Victor: *"when I canceled the
+        // dictation while recording, the rec sign remained on screen"*).
+        FilmBorder.hide()
         slots.wait(); slots.wait()
         slots.signal(); slots.signal()
         try? FileManager.default.removeItem(at: dir)
@@ -349,10 +352,14 @@ final class ScreenFilm {
 /// `REC` stays lit beside it, the way a viewfinder does it. It sits under the
 /// menu bar, which would otherwise draw over it. The border keeps its own
 /// half-second blink, so the two are separate layers now.
+///
+/// **The dot and `REC` 20 % larger** (2026-10-16, Victor: *"the red dot next to
+/// the record in the top corner and the text should be 20% larger"*): 42 → 50 pt
+/// dot, 40 → 48 pt text.
 enum FilmBorder {
     private static var panel: NSPanel?
     static let width: CGFloat = 5
-    static let dot: CGFloat = 42
+    static let dot: CGFloat = 50
     /// The dot's whole cycle, half lit, half dark.
     static let slowBlink: CFTimeInterval = 2.0
     private static let ink = NSColor.systemRed
@@ -397,7 +404,7 @@ enum FilmBorder {
         border.add(blink(values: [1.0, 0.5], duration: 1.0), forKey: "blink")
         v.layer?.addSublayer(border)
 
-        let font = NSFont.monospacedSystemFont(ofSize: 40, weight: .heavy)
+        let font = NSFont.monospacedSystemFont(ofSize: 48, weight: .heavy)
         let text = NSAttributedString(string: "REC", attributes: [.font: font, .foregroundColor: ink])
         let textSize = text.size()
         let gap: CGFloat = 12
@@ -426,10 +433,15 @@ enum FilmBorder {
     }
 
     /// A hard step, no ease: the first value for the first half, the second after.
-    private static func blink(values: [Double], duration: CFTimeInterval) -> CAAnimation {
+    ///
+    /// **A discrete animation needs one more key time than values** — `[0, 0.5, 1]`
+    /// for two. With `[0, 0.5]` Core Animation silently ignores it: neither the dot
+    /// nor the border had ever blinked (measured 2026-10-16 on the presentation
+    /// layer: opacity stuck at 1.0 with two key times, 1 → 0 → 1 with three).
+    static func blink(values: [Double], duration: CFTimeInterval) -> CAAnimation {
         let a = CAKeyframeAnimation(keyPath: "opacity")
         a.values = values
-        a.keyTimes = [0, 0.5]
+        a.keyTimes = [0, 0.5, 1]
         a.calculationMode = .discrete
         a.duration = duration
         a.repeatCount = .infinity

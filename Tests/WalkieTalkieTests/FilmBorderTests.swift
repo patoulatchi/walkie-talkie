@@ -24,4 +24,12 @@ final class FilmBorderTests: XCTestCase {
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("film-badge-\(name).png"))
         }
     }
+
+    /// A discrete keyframe animation with as many key times as values is ignored
+    /// by Core Animation — the badge and border never blinked until 2026-10-16.
+    func testBlinkHasOneMoreKeyTimeThanValues() throws {
+        let a = try XCTUnwrap(FilmBorder.blink(values: [1.0, 0.0], duration: 2) as? CAKeyframeAnimation)
+        XCTAssertEqual(a.keyTimes?.count, (a.values?.count ?? 0) + 1)
+        XCTAssertEqual(a.keyTimes?.last, 1)
+    }
 }
