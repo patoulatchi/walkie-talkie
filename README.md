@@ -57,7 +57,9 @@ wheel. The menu bar icon lists every action next to the gesture that does it.
 ./build-app.sh          # → /Applications/Walkie Talkie.app
 ```
 
-- 📦 Needs `victor-mac-kit` checked out next to this folder.
+- 🍏 Apple silicon only: the vendored projectM libraries are arm64.
+- 📦 [`victor-mac-kit`](https://github.com/victorrentea/victor-mac-kit) is fetched from GitHub on the first build, unless it is checked out next to this folder (then that copy is used).
+- 🔏 Without `CODESIGN_IDENTITY` the app is signed ad hoc, and macOS forgets the Accessibility grant on every rebuild; any local self-signed code-signing certificate fixes that.
 - 🔐 Grant **Accessibility**, **Screen Recording** and **Microphone** when asked.
 - 🗣️ Pick a recogniser from the menu: **ElevenLabs Scribe** (key in `~/.walkie-talkie/elevenlabs.env`), a **local Whisper** (`pip install mlx-whisper`, plus `ffmpeg`) or **Wispr Flow**.
 - 🧩 Optional, for picking elements in Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → `chrome-extension/`.
@@ -255,7 +257,7 @@ About forty more `/test/*` routes drive every feature from a desk: see `.claude/
 - The restart **waits** until 5 s after the last dictation and refuses while anything is recording or transcribing. A bare `./build-app.sh` only when the app is not running: a bundle replaced under a running app breaks every bind.
 - Launch it with `open "/Applications/Walkie Talkie.app"`, never by its executable path, which macOS registers as a second app for permissions.
 - The `.app` is signed (`CODESIGN_IDENTITY`) because macOS keys Accessibility, Screen Recording and Microphone grants to the signing identity plus the bundle id (`ro.victorrentea.wispr-relay`, kept from its old name on purpose).
-- Needs `../victor-mac-kit` checked out beside this folder.
+- `../victor-mac-kit`, when it is there, wins over the GitHub copy, so an edit to the crop rebuilds in one step.
 - **After any overlay change, run `./docs/shoot-overlay-states.sh`.** It regenerates [the states page](docs/overlay-states.html) and the README's pictures.
 
 ## Debugging
