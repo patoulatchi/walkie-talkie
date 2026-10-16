@@ -2283,26 +2283,32 @@ private let VK_ESCAPE: CGKeyCode = 0x35        // esc
         // later. Rebuilding the tap on a toggle would be the alternative, and it
         // would mean tearing down the thing that carries ⌘⌃B while a dictation
         // may be running.
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-                 | CGEventMask(1 << CGEventType.keyUp.rawValue)
-                 | CGEventMask(1 << CGEventType.flagsChanged.rawValue)
-                 | CGEventMask(1 << CGEventType.otherMouseDown.rawValue)
-                 | CGEventMask(1 << CGEventType.otherMouseUp.rawValue)
-                 // **Drags, for the one gesture that is a drag.** A middle press
-                 // cannot be told from a middle click at the press — the
-                 // difference is whether the hand then moves — so the only place
-                 // the question can be answered is in the events between them.
-                 // Everything that is not a middle drag goes straight back out.
-                 | CGEventMask(1 << CGEventType.otherMouseDragged.rawValue)
-                 // **The wheel's turn, for the one gesture that reads it** — the
-                 // halo dial (2026-09-20). Every scroll on the machine comes past
-                 // here and goes straight back out unless the middle button is
-                 // down while the ring is up; see `haloDial`.
-                 | CGEventMask(1 << CGEventType.scrollWheel.rawValue)
-                 | CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
-                 | CGEventMask(1 << CGEventType.leftMouseUp.rawValue)
-                 | CGEventMask(1 << CGEventType.rightMouseDown.rawValue)
-                 | CGEventMask(1 << CGEventType.rightMouseUp.rawValue)
+        let types: [CGEventType] = [
+            .keyDown,
+            .keyUp,
+            .flagsChanged,
+            .otherMouseDown,
+            .otherMouseUp,
+            // **Drags, for the one gesture that is a drag.** A middle press
+            // cannot be told from a middle click at the press — the
+            // difference is whether the hand then moves — so the only place
+            // the question can be answered is in the events between them.
+            // Everything that is not a middle drag goes straight back out.
+            .otherMouseDragged,
+            // **The wheel's turn, for the one gesture that reads it** — the
+            // halo dial (2026-09-20). Every scroll on the machine comes past
+            // here and goes straight back out unless the middle button is
+            // down while the ring is up; see `haloDial`.
+            .scrollWheel,
+            .leftMouseDown,
+            .leftMouseUp,
+            .rightMouseDown,
+            .rightMouseUp,
+        ]
+        // One `|` chain of eleven `CGEventMask(1 << …)` was too much for Swift 6.1's
+        // type checker ("unable to type-check this expression in reasonable time",
+        // issue #2, on the stock Command Line Tools); a fold over a typed array asks it nothing.
+        let mask = types.reduce(CGEventMask(0)) { $0 | CGEventMask(1 << $1.rawValue) }
 
         tapMask = mask
         guard let tap = makeTap() else {
