@@ -220,7 +220,7 @@ yields to `--label`).
   device to `RelayWindow.setRecordDevice` (the bare emoji at `iconInk`) and only `→ <logo>` to
   `setMicMark`; an unknown device keeps the walkie. The row reads `🎤 Prompting → ⬮...`. **The local model's mark is 💻 (the Apple mark until 2026-10-04) and wears a subscript `ᵥ`
   (`Glyphs.loraMark`, U+1D65) when the weights are not the published Turbo** — drawn as a letter,
-  filling with the bar (state `transcribing-lora`). The film row's icon is 🎞️ (📹 until 2026-10-04).
+  filling with the bar (state `transcribing-lora`). The film row's icon is a drawn red dot (2026-10-16; 🎞️ from 2026-10-04, 📹 before), glowing three dots across while recording (`filmGlow`), and the trailing 🔴 is gone.
 - **`Listening to 🎤 → ⬮...` since 2026-09-24** (the device moved into the disc on 2026-10-04, above) — the listening row names the recogniser too, after an
   arrow (*"place an arrow and then specify as well the transcription engine"*). Wispr's five bars
   whenever Wispr holds the mic, whatever `Engine` says, and the device glyph is then Wispr's own
