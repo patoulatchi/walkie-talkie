@@ -100,7 +100,7 @@
 <header class="page">
   <h1>Every state of the overlay</h1>
   <p class="sub">
-    All 62 states the Walkie&nbsp;Talkie chip and panel can be in — what each one
+    All 63 states the Walkie&nbsp;Talkie chip and panel can be in — what each one
     is, and the moment it is on screen. The pictures are the real views drawing
     themselves, not mockups.
   </p>
@@ -570,6 +570,16 @@
         <p class="note"><strong>Words and nothing else</strong>, and <strong>bare</strong>: no glyph of its own, no lone 🎙️ above it, no blur, no rounded rect, no shadow, no ✕. It is a word replacing a word — it lands in the row <code>Listening…</code> was just occupying, beside the pointer — and a window opening and closing round it for a second and a half read as an <em>event</em> rather than as the state changing back to nothing. The audio is gone; there is nothing to offer him and nothing to undo.</p>
         <code class="slug">flash-cancelled</code>
       </section>
+      <section class="card" id="flash-local-fallback">
+        <header>
+          <h3>Flash — the local model stood in</h3>
+          <div class="tags"><span class="tag tag-flash" title="a message in the chip for a few seconds — bare like the chip, no blur, no border">flash</span><span class="tag">alpha 0.80</span><span class="tag">179×46 pt</span></div>
+        </header>
+        <div class="shot"><img src="states/flash-local-fallback.png" width="179" height="46" style="opacity:0.8" alt="Flash — the local model stood in"></div>
+        <p class="when">Three seconds, the moment a sentence the local model wrote has landed while another engine was picked (2026-10-16): the engine failed, or its budget ran out. ⌘⌃X says <code>💻 Used local</code> instead.</p>
+        <p class="note">Victor: <em>&quot;If something else like Wispr was selected, fall back to local mode. I want to know that.&quot;</em> A caret sentence has no panel to carry the <code>Engine:</code> row, so the chip says it. No engine&#x27;s name — the icon only.</p>
+        <code class="slug">flash-local-fallback</code>
+      </section>
       <section class="card" id="flash-model-failed">
         <header>
           <h3>Flash — the recogniser is not there</h3>
@@ -775,7 +785,7 @@
       </section>
     </div>
 <footer>
-  Generated from <code>OverlayStates.swift</code> · repo at cb29b28 · 16 Oct 2026 · built 16 Oct 2026, 16:59
+  Generated from <code>OverlayStates.swift</code> · repo at 6a9462d · 16 Oct 2026 · built 16 Oct 2026, 21:43
 </footer>
 <button class="toggle" onclick="document.body.classList.toggle('light')">Backdrop: dark / light</button>
 </body>

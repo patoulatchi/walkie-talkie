@@ -12042,7 +12042,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lastDeliveryRecord = obj
         deliveryLock.unlock()
         Log.info("📦 delivery: \(via) → \(to) (\(Self.deliveryName(kind)))")
+        // **The local model stood in — said once the words have landed**
+        // (2026-10-16, Victor: *"the tooltip should display that thing for 2 or 3
+        // seconds … If something else like Wispr was selected, fall back to local
+        // mode. I want to know that."*). Here because every route records its
+        // landing here — caret, bound terminal, spawn, ⚡ — and a caret sentence
+        // has no panel to carry the `Engine:` row. Not for `held`: its own flash
+        // says so, and this one comes when the bind delivers it. Hopped, so it
+        // lands after the `🎙️ sent` flash of the same turn instead of under it.
+        if to != "held", let notice = Self.localNotice(via: via) {
+            DispatchQueue.main.async { [weak self] in self?.overlay.flash(notice, duration: 3) }
+        }
         return obj
+    }
+
+    /// The chip's flash when the local model wrote a sentence another engine
+    /// was picked for — nil when the Engine itself answered. No engine's name
+    /// (the 2026-10-06 rule: *"only the icon"*).
+    static func localNotice(via: String) -> String? {
+        switch via {
+        case "local-fallback", "local-auto": return "💻 Fell back to local"
+        case "local-forced": return "💻 Used local"
+        default: return nil
+        }
     }
 
     private static func deliveryName(_ d: DictationDelivery) -> String {

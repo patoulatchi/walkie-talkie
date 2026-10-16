@@ -158,6 +158,15 @@ yields to `--label`).
   transcribed`. States page: `transcribing-fallback-countdown`, `transcribing-fallback-now`,
   `listening-wispr-starting`.
 
+- **`💻 Fell back to local` / `💻 Used local` — a 3 s flash once the local model's words have landed
+  for another engine** (2026-10-16, Victor: *"the tooltip should display that thing for 2 or 3 seconds
+  … If something else like Wispr was selected, fall back to local mode. I want to know that."*).
+  `Fell back` for `via: local-fallback` (the engine failed) and `local-auto` (its budget ran out),
+  `Used local` for `local-forced` (⌘⌃X). Fired from `AppDelegate.recordDelivery` — every route's
+  landing (caret, bound terminal, spawn, ⚡) — hopped to main so it outlasts the same turn's
+  `🎙️ sent`; not for `held` (its own flash; the notice comes at the bind's delivery). No engine's
+  name. Shot `flash-local-fallback`.
+
 ## `Listening...` and `Transcribing...`
 
 - **The live caption is not on the chip since 2026-09-26** — it is `LiveCaptionBand`, a click-through

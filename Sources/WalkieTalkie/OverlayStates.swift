@@ -469,6 +469,14 @@ enum OverlayStates {
                 o.flash("🗑️ Cancelled", duration: 60)
             },
 
+            Shot(slug: "flash-local-fallback", group: "Flashes", title: "Flash — the local model stood in",
+                 when: "Three seconds, the moment a sentence the local model wrote has landed while another engine was picked (2026-10-16): the engine failed, or its budget ran out. ⌘⌃X says `💻 Used local` instead.",
+                 note: "Victor: *\"If something else like Wispr was selected, fall back to local mode. I want to know that.\"* A caret sentence has no panel to carry the `Engine:` row, so the chip says it. No engine's name — the icon only.",
+                 shape: "flash", alpha: 0.80) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ petclinic — Fix the tax rounding", icon: terminal)
+                o.flash(AppDelegate.localNotice(via: "local-fallback") ?? "", duration: 60)
+            },
+
             Shot(slug: "flash-model-failed", group: "Flashes", title: "Flash — the recogniser is not there",
                  when: "Twelve seconds, when Whisper fails to load — a missing `mlx_whisper`, most often.",
                  note: "The longest flash there is, because it is the only one that means the next thing he tries will not work at all. This is the only recogniser the relay has.",
