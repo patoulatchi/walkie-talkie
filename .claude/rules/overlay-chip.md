@@ -444,6 +444,9 @@ yields to `--label`).
   draws cut + screen as **one** attachment (`calloutGap` 32 pt between them, both on the bottom edge)
   so a line can cross from one to the other — the cut's right corners to the red box's left ones,
   1.5 pt, dark halo. Two attachments on a line cannot draw across each other.
+  **The cut wears the same red ring** (2026-10-16, Victor: *"the large image picked also surrounded
+  by a red rectangle … the small box on the big screen becomes the large box at the side of it"*):
+  `ringWidth` 2 pt, inside the cut's edge so the lines still leave from its outer corners.
   Shots `prompt-area-context`, `prompt-move-context`; `AREA_CONTEXT_PNG=<dir> swift test --filter
   AreaContextTests` renders both drawings.
 - **A screen recording rides the strip, last, as a picture** (2026-10-08, Victor: *"when I send the

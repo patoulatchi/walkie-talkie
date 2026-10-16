@@ -68,6 +68,10 @@ final class AreaContextTests: XCTestCase {
                         Int(from.y + (to.y - from.y) * ((gap / 2) / (to.x - from.x)) + 0.5))
         XCTAssertGreaterThan(mid.redComponent, 0.6)
         XCTAssertLessThan(mid.greenComponent, 0.4)
+        // The cut is ringed red, like its box on the screen.
+        let edge = color(rep, 0, 180)
+        XCTAssertGreaterThan(edge.redComponent, 0.6)
+        XCTAssertLessThan(edge.greenComponent, 0.4)
         // The cut stands on the bottom edge.
         XCTAssertGreaterThan(brightness(rep, 30, 180), 0.95)
         XCTAssertLessThan(brightness(rep, 30, 100), 0.1)

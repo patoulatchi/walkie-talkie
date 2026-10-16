@@ -65,11 +65,10 @@ enum AreaContext {
             veil.setFill()
             veilPath.fill()
 
-            let line: CGFloat = 2
             for (i, rect) in boxes.enumerated() {
                 (i == 0 ? sourceColor : destinationColor).setStroke()
-                let ring = NSBezierPath(rect: rect.insetBy(dx: -line / 2, dy: -line / 2))
-                ring.lineWidth = line
+                let ring = NSBezierPath(rect: rect.insetBy(dx: -ringWidth / 2, dy: -ringWidth / 2))
+                ring.lineWidth = ringWidth
                 ring.stroke()
             }
             if boxes.count == 2 {
@@ -85,6 +84,9 @@ enum AreaContext {
         let k = width / max(pixels.width, 1)
         return CGRect(x: r.minX * k, y: r.minY * k, width: r.width * k, height: r.height * k)
     }
+
+    /// The red (and green) rings: the box on the screen and the cut beside it.
+    static let ringWidth: CGFloat = 2
 
     /// The space between the cut-out and the screen, where the lines cross.
     static let calloutGap: CGFloat = 32
@@ -111,6 +113,15 @@ enum AreaContext {
                      respectFlipped: true, hints: nil)
             screen.draw(in: screenRect, from: .zero, operation: .sourceOver, fraction: 1,
                         respectFlipped: true, hints: nil)
+            // The cut ringed in the same red as its box on the screen
+            // (2026-10-16, Victor: *"the large image picked also surrounded by
+            // a red rectangle … the small box on the big screen becomes the
+            // large box at the side of it"*). Inside its edge, so the lines
+            // still leave from its outer corners.
+            let ring = NSBezierPath(rect: cutRect.insetBy(dx: ringWidth / 2, dy: ringWidth / 2))
+            ring.lineWidth = ringWidth
+            sourceColor.setStroke()
+            ring.stroke()
             let target = box.offsetBy(dx: screenRect.minX, dy: screenRect.minY)
             let lines = NSBezierPath()
             lines.move(to: CGPoint(x: cutRect.maxX, y: cutRect.minY))
