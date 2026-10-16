@@ -338,8 +338,8 @@ pin`, and it was **not** the asleep tree: with VS Code in front `kAXFocusedUIEle
 `caretInVSCodeTerminal` has relied on since 2026-10-06) — it is `kAXBoundsForRange` that answers a
 0×0 rect for every range, which `bounds()` rightly refuses.
 
-- **A caret-sized focused element is the caret** (`TerminalBinding.caretReading`, `caretSized`
-  60×60 pt): xterm.js reads keys through a textarea parked on the cursor cell — measured a 10×22
+- **A caret-sized focused text element is the caret** (`TerminalBinding.caretReading`, `caretSized`
+  60×60 pt, a `textRoles` role only — a focused button or Finder icon must still cross the pin): xterm.js reads keys through a textarea parked on the cursor cell — measured a 10×22
   `AXTextField` at exactly the `❯ █` of a Claude Code prompt. Taken only after all three range
   probes fail, so Terminal.app and IntelliJ's editor (a 1569×840 `AXTextArea` whose ranges answer)
   keep their exact caret. Desk: `focusFrame.caret` on the prompt line, `halo.heads` armed, not crossed.

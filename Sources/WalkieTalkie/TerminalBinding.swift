@@ -1535,6 +1535,11 @@ final class TerminalBinding {
     /// anything the size of a document is not a caret.
     static let caretSized = CGSize(width: 60, height: 60)
 
+    /// Roles that take typed text — a small focused button or Finder icon is
+    /// not a caret, and must still reach `focusTakesNoText`'s crossed pin.
+    static let textRoles: Set<String> = [kAXTextAreaRole, kAXTextFieldRole, kAXComboBoxRole,
+                                         "AXSearchField", "AXSecureTextField"]
+
     /// `caret`, and when there is none, **why** — for the `🟧 … no caret found`
     /// line, so the next app that hides its caret says how (2026-10-16).
     static func caretReading(pid: pid_t, in window: CGRect) -> (point: NSPoint?, miss: String?) {
@@ -1588,7 +1593,7 @@ final class TerminalBinding {
             }
         }
         let own = ownFrame()
-        if caret == nil, let own, own.height > 0,
+        if caret == nil, textRoles.contains(role), let own, own.height > 0,
            own.width <= caretSized.width, own.height <= caretSized.height {
             caret = CGPoint(x: own.minX, y: own.midY)
         }
@@ -1621,8 +1626,6 @@ final class TerminalBinding {
         var roleRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
               let role = roleRef as? String else { return false }
-        let textRoles: Set<String> = [kAXTextAreaRole, kAXTextFieldRole, kAXComboBoxRole,
-                                      "AXSearchField", "AXSecureTextField"]
         if textRoles.contains(role) { return false }
         var ancestor: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, "AXEditableAncestor" as CFString, &ancestor) == .success,
