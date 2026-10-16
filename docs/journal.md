@@ -15598,3 +15598,25 @@ something, not at a shutter press.
 
 Left: Options+'s trailing flags-cleared event after the chord still reaches the front app — it is
 not this app's to swallow. If a tooltip still vanishes on a shot, that is the suspect.
+
+## 2026-10-16 — the film row's icon is a glowing red dot, and the film follows the pointer
+
+Victor: *"change the icon … for a movie to the red dot, not the emoji of a cinema movie roll … when it
+is active, make it glow … almost three times as large, fading out outside … If I move my mouse on
+another screen, the recording of that screen should happen"*.
+
+**The chip.** The 🎞️ in the film row's icon column is a drawn 13 pt `systemRed` circle
+(`filmGlyphImage`); the trailing pulsing 🔴 (2026-09-29) is gone, since the icon is now that dot.
+While the screen is recording, `filmGlow` — a radial `CAGradientLayer` three dots across (39 pt),
+red 0.9 → 0.45 at 40 % → clear — sits under the dot and breathes on the old 0.8 s pulse (opacity
+1 → 0.35, scale 1 → 0.7, autoreversed). A layer of its own rather than the glyph's shadow: the bare
+chip sets every glyph's shadow to the dark halo in `refreshChrome`, which would overwrite a red one.
+Not filming (only carried films): the plain dot. Nothing clips it — checked on `listening-filming`.
+
+**The film.** `ScreenFilm` no longer resolves the display once at `start`: every tick
+(`followPointer`, on the capture queue, pure CG — `CGEvent.location` + `CGGetDisplaysWithPoint`)
+films the display under the pointer, and the red border moves with it (`FilmBorder.move`, which only
+re-shows a border that is still up, so a switch queued just before `stop` cannot resurrect it). The
+*display changed size → stop* guard is gone, and `FilmSheet` takes the cell from the tallest frame
+and aspect-fits each frame, centred — it used to stretch every frame into frame 0's shape.
+`FilmSheetTests` covers a 16:9 + 16:10 sheet.

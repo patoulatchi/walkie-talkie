@@ -68,7 +68,9 @@ final class ScreenFilm {
         let dropped: Int
     }
 
-    private let displayID: CGDirectDisplayID
+    /// The display being filmed — re-resolved every frame from the pointer
+    /// (`followPointer`). Touched only on the capture queue.
+    private var displayID: CGDirectDisplayID
     private let dir: URL
     private let startedAt: CFTimeInterval
 
@@ -91,10 +93,6 @@ final class ScreenFilm {
     private let framesLock = NSLock()
     private var dropped = 0
     private var index = 0
-    /// The pixel size of frame #0. A display that changes resolution, sleeps or
-    /// is unplugged mid-recording produces frames that cannot go in one grid, and
-    /// a sheet that silently mixes two geometries is worse than a short film.
-    private var geometry: (w: Int, h: Int)?
 
     /// **How many frames are on disk right now**, for the chip's row.
     ///
@@ -119,10 +117,12 @@ final class ScreenFilm {
 
     /// Begin recording the display the pointer is on.
     ///
-    /// The display is resolved **once, here**, and held for the whole recording:
-    /// the sheet is one grid and the frames are one film, so a pointer that
-    /// wanders to the second monitor must not change what is being filmed
-    /// halfway through.
+    /// **The film follows the pointer to another display** (2026-10-16, Victor:
+    /// *"if I move my mouse on another screen, the recording of that screen
+    /// should happen"*). Until then the display was resolved once, here, so the
+    /// sheet would be one geometry; now every frame is of the display under the
+    /// pointer at that instant, the red border moves with it, and `FilmSheet`
+    /// fits each frame into its cell whatever its size.
     static func start() -> ScreenFilm? {
         guard let screen = screenUnderPointer(),
               let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
@@ -229,20 +229,12 @@ final class ScreenFilm {
                 framesLock.lock(); dropped += 1; framesLock.unlock()
                 return
             }
+            followPointer()
             guard let image = grab() else {
                 slots.signal()
                 framesLock.lock(); dropped += 1; framesLock.unlock()
                 return
             }
-            if let g = geometry, g.w != image.width || g.h != image.height {
-                Log.error("🎬 the display changed size mid-recording (\(g.w)×\(g.h) → \(image.width)×\(image.height)) — stopping here")
-                slots.signal()
-                timer?.cancel()
-                timer = nil
-                return
-            }
-            geometry = (image.width, image.height)
-
             let at = CACurrentMediaTime()
             index += 1
             let url = dir.appendingPathComponent(String(format: "frame-%04d.jpg", index))
@@ -257,6 +249,26 @@ final class ScreenFilm {
                     }
                 }
             }
+        }
+    }
+
+    /// **Switch to the display the pointer is on now**, and move the border to it.
+    /// Pure Core Graphics because this runs on the capture queue, where
+    /// `NSEvent`/`NSScreen` are not to be touched: `CGEvent.location` is already
+    /// in the displays' own top-left global space.
+    private func followPointer() {
+        guard let p = CGEvent(source: nil)?.location else { return }
+        var id: CGDirectDisplayID = 0
+        var count: UInt32 = 0
+        guard CGGetDisplaysWithPoint(p, 1, &id, &count) == .success, count > 0, id != displayID
+        else { return }
+        Log.info("🎬 the pointer moved to display \(id) — filming it now (was \(displayID))")
+        displayID = id
+        DispatchQueue.main.async {
+            guard let screen = NSScreen.screens.first(where: {
+                ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id
+            }) else { return }
+            FilmBorder.move(to: screen)
         }
     }
 
@@ -364,6 +376,13 @@ enum FilmBorder {
         p.setFrame(screen.frame, display: true)
         p.orderFrontRegardless()
         panel = p
+    }
+
+    /// The border follows the film to another display — but only while it is
+    /// up: a switch queued just before `stop()` must not bring it back after.
+    static func move(to screen: NSScreen) {
+        guard panel != nil else { return }
+        show(on: screen)
     }
 
     /// The drawing, also rendered by `FilmBorderTests` (`FILM_BORDER_PNG=<dir>`)

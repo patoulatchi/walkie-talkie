@@ -222,7 +222,8 @@ Covers the shutter: what a shot is named, what travels to the agent, the on-scre
 
 Victor: *"a red border, not any fade, just a plain red border, a few pixels solid, around the screen
 recorded, and blinking 50% transparent to 100% opaque"*. 5 pt `systemRed` round the filmed display
-(the one resolved at `start`), a **hard step** 100 % ↔ 50 % every 0.5 s (discrete keyframes — no
+(**the one under the pointer, re-resolved every frame since 2026-10-16** — `followPointer`; the border
+moves with it via `FilmBorder.move`, and `FilmSheet` aspect-fits frames of different displays), a **hard step** 100 % ↔ 50 % every 0.5 s (discrete keyframes — no
 ease), click-through, `sharingType = .none`. Up at `ScreenFilm.start`, down at `stop` and at the 30 s
 ceiling. Not yet seen in a frame — if `CGDisplayCreateImage` ever draws it, that is the bug to chase.
 

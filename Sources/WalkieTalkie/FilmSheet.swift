@@ -90,12 +90,14 @@ enum FilmSheet {
             Log.info("🎬 sheet samples \(maxCells) of \(all.count) frames — all of them are on disk")
         }
 
-        // Every frame of one recording is the same display, so the aspect of the
-        // first one sets every cell — measured rather than assumed, because a
-        // recording that spans a display change would otherwise letterbox
-        // silently.
-        guard let first = thumbnail(frames[0].url, width: cellWidth) else { return nil }
-        let cellHeight = (cellWidth * CGFloat(first.height) / CGFloat(first.width)).rounded()
+        // **A recording can span displays** since it follows the pointer
+        // (2026-10-16), so the frames need not share a shape. The tallest aspect
+        // sets the cell and every frame is fitted into it, centred — never
+        // stretched, which would draw a 16:10 display as if it were 16:9.
+        let thumbs = frames.map { thumbnail($0.url, width: cellWidth) }
+        let aspects = thumbs.compactMap { $0.map { CGFloat($0.height) / CGFloat($0.width) } }
+        guard let tallest = aspects.max() else { return nil }
+        let cellHeight = (cellWidth * tallest).rounded()
 
         let cols = min(columns, frames.count)
         let rows = Int(ceil(Double(frames.count) / Double(cols)))
@@ -124,8 +126,11 @@ enum FilmSheet {
             let yTop = height - margin - CGFloat(row) * (cellTotal + gap)
             let imageRect = CGRect(x: x, y: yTop - cellHeight, width: cellWidth, height: cellHeight)
 
-            if let thumb = thumbnail(frame.url, width: cellWidth) {
-                ctx.draw(thumb, in: imageRect)
+            if let thumb = thumbs[n] {
+                let scale = min(cellWidth / CGFloat(thumb.width), cellHeight / CGFloat(thumb.height))
+                let w = CGFloat(thumb.width) * scale, h = CGFloat(thumb.height) * scale
+                ctx.draw(thumb, in: CGRect(x: imageRect.midX - w / 2, y: imageRect.midY - h / 2,
+                                           width: w, height: h))
             } else {
                 // A frame that could not be read is drawn as a hole rather than
                 // skipped: the grid's positions are the timeline, and a missing
