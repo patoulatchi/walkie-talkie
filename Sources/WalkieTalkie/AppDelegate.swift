@@ -10401,11 +10401,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileSelection(text, at: offset, opened: opened, announceOnRepeat: false)
     }
 
+    /// **Accessibility only — the shutter posts nothing into the front app**
+    /// (2026-10-16, reverses 2026-08-31). Victor: *"Facă poză și atât … îmi
+    /// dispar dialogele, se închid tooltip-urile."* With nothing highlighted the
+    /// ⌘C fallback was still a keystroke into the app under his hand, and a key
+    /// event closes a tooltip, a popover or a hover menu — the very thing he
+    /// was photographing. A Chrome page's highlight now rides *Everything I
+    /// Copy* (his own ⌘C, 2026-10-15) or ⌘⇧-click.
     private func stashExtraSelection(at offset: TimeInterval) {
         stateLock.lock()
         let opened = dictationStartedAt
         stateLock.unlock()
-        guard let text = SelectionCapture.read(), !text.isEmpty else { return }
+        guard let text = SelectionCapture.readQuiet(), !text.isEmpty else { return }
         fileSelection(text, at: offset, opened: opened, announceOnRepeat: true)
     }
 
@@ -10911,6 +10918,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // run and returned, the caret and the highlight it sat in have both
             // moved on. A selection read after the picture would be a selection
             // from after the picture.
+            //
+            // **Accessibility only since 2026-10-16** — no ⌘C into the app
+            // under his hand (`stashExtraSelection`); the two paragraphs below
+            // are about the ⌘C that was here until then.
             //
             // **In Replace Wispr too, since 2026-09-09.** It was skipped there,
             // because `SelectionCapture.read` falls back to a synthetic ⌘C and

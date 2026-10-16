@@ -24,6 +24,12 @@ enum SelectionCapture {
     /// A shutter press is a deliberate act with a deliberate subject; the ⌘C is
     /// a price Victor asked to pay, and with nothing selected the probe is a
     /// no-op the app never notices.
+    ///
+    /// **Not since 2026-10-16** — the shutter is back on `readQuiet()`. The
+    /// *no-op* was false: with nothing selected the ⌘C still reaches the app,
+    /// and a key event closes its tooltips, popovers and hover menus (Victor:
+    /// *"îmi dispar dialogele, se închid tooltip-urile"*). The callers left are
+    /// the probes behind his own selection gestures (`probeSelectionAfterDrag`).
     static func read() -> String? {
         if let ax = readViaAccessibility(), !ax.isEmpty { return ax }
         return readViaClipboardProbe()
@@ -44,6 +50,7 @@ enum SelectionCapture {
     /// pasteboard wait per tick, and stamp on the clipboard restore if two
     /// probes ever overlapped. So the watcher sees what AX exposes and no more,
     /// and the shutter stays exactly what it was for everything AX cannot see.
+    /// (Since 2026-10-16 the shutter reads through here too — see `read()`.)
     ///
     /// **The messaging timeout is the other half.** `AXUIElementCopyAttributeValue`
     /// blocks until the target app answers, and the default allowance is

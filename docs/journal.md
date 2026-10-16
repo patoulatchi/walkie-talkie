@@ -15575,3 +15575,26 @@ log line now carries the reason, to be read off his next sentence there.
 Desk (installed build, `hands-off`): VS Code terminal → `focusFrame.caret` (403, 155), heads armed,
 not crossed, log `… outlined`; VS Code editor → (458, 758), same.
 
+
+## 2026-10-16 — the shutter takes the picture and nothing else
+
+Victor, mid-prompt: *"atunci când fac o poză cu butonul de back în timpul ce îți dictez … trebuie să
+interceptezi acel buton de back, să nu ajungă la aplicația de sub. Facă poză și atât … pare că
+click-ul trece prin cumva … îmi dispar dialogele, se închid tooltip-urile."* His frame (14:59:47) is
+Chrome's window-tile popover, open over the green button.
+
+The chord was not passing through — F6 is swallowed on the shutter branch. What reached the app was
+the shutter's own **⌘C**: `plusOneShot` → `stashExtraSelection` → `SelectionCapture.read()`, which
+falls back to a synthetic ⌘C whenever Accessibility answers nothing — i.e. on almost every shot,
+since nothing is highlighted while he photographs a menu. The 2026-08-31 comment called that ⌘C *a
+no-op the app never notices*; a key event closes tooltips, popovers and hover menus, so it is not.
+Nothing logged it, because the probe only logs when the clipboard changed.
+
+The shutter now reads with `readQuiet()` (Accessibility only), as it did before 2026-08-31. What the
+⌘C was there for — a highlight in a Chrome page — has two other doors since: *Everything I Copy*
+(2026-10-15, his own ⌘C rides the prompt) and ⌘⇧-click. The probes behind his own selection gestures
+(`probeSelectionAfterDrag`, `probeRecentSelection`) keep their ⌘C: they fire after he selected
+something, not at a shutter press.
+
+Left: Options+'s trailing flags-cleared event after the chord still reaches the front app — it is
+not this app's to swallow. If a tooltip still vanishes on a shot, that is the suspect.
