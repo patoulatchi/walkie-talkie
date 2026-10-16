@@ -59,6 +59,8 @@ final class FocusFrame {
         /// middle when the app has no window at all. Nil when there is a caret,
         /// or when Accessibility cannot tell.
         var noCaret: NSPoint?
+        /// Why there is no caret, for the log (`TerminalBinding.caretReading`).
+        var miss: String?
     }
 
     /// The caret the pin should stand on, or nil — main thread.
@@ -174,7 +176,9 @@ final class FocusFrame {
             }
         }
         guard r.visible else { return r }
-        guard let caret = TerminalBinding.caret(pid: pid, in: window), uncovered(caret) else {
+        let found = TerminalBinding.caretReading(pid: pid, in: window)
+        guard let caret = found.point, uncovered(caret) else {
+            r.miss = found.miss ?? "its caret is covered"
             if TerminalBinding.focusTakesNoText(pid: pid, bundle: bundle) {
                 r.noCaret = NSPoint(x: window.midX, y: window.midY)
             }
@@ -216,7 +220,7 @@ final class FocusFrame {
                                 r.app ?? "?", w.width, w.height, w.minX, w.minY,
                                 r.visible ? "outlined" : "not visible — no outline, no pin",
                                 r.visible ? (r.caret != nil ? "" : r.noCaret != nil ? ", nothing in it takes text — the pin crossed out"
-                                                                                    : ", no caret found in it — no pin") : ""))
+                                                                                    : ", no caret found in it (\(r.miss ?? "?")) — no pin") : ""))
             } else {
                 Log.info("🟧 the words go to \(r.app ?? "nothing") — no focused window, nothing outlined\(r.noCaret != nil ? ", the pin crossed out on the screen" : "")")
             }

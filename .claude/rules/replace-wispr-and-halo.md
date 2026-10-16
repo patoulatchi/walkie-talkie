@@ -291,7 +291,7 @@ will receive the input … [if it is] a hidden terminal … don't display the ar
 - **The outline is 4 pt orange, drawn inside the window's edge** (10 pt corners) — a maximised or tiled
   window has no outside. `.floating`, click-through, `sharingType = .none`.
 - **`CaretHalo.headsAt`** replaces the pointer as the heads' centre (`placeHeads`, `headsOrigin`);
-  **nil → the heads stay down** (`armed` requires it): no caret found (VS Code's lazy AX tree), or not
+  **nil → the heads stay down** (`armed` requires it): no caret found, or not
   visible. The ring still rides the pointer; the heads' schedule (silence, then `hold` in flight) is
   unchanged.
 - Log `🟧 the words go to <app> — window W×H at (x, y), outlined[, no caret found in it — no heads]`;
@@ -324,12 +324,33 @@ tell that visually somehow"*. **Supersedes the six heads** in the two sections a
   Electron) or Finder outside a rename → the window's middle; the frontmost app has no window at all
   → the pointer's screen's middle. **Anything else is *cannot tell*, never *nowhere***: Word reports
   its document as an `AXSplitGroup` while its caret blinks (measured 2026-10-14 — the first build
-  crossed out every Word sentence), VS Code has no focused element (`-25212`, no
-  `AXManualAccessibility`), IntelliJ no role; they show no pin, as before. Log
+  crossed out every Word sentence), IntelliJ no role; they show no pin, as before. Log
   `🟧 … nothing in it takes text — the pin crossed out`; `GET /test/state.focusFrame.noCaret`,
   `halo.heads.crossed` / `.shine`.
 - `WT_SHOOT_HALO`'s `…-arrow.png` has four columns: `quiet + pin`, `words in flight`, `full voice`
   (plain), `no caret`.
+
+## VS Code's caret is its focused element's own frame (2026-10-16)
+
+Victor: *"When I am dictating to the terminal of Visual Studio Code … I don't see … the red pin …
+I want to have that red icon pop."* Every `Code` line in the log said `no caret found in it — no
+pin`, and it was **not** the asleep tree: with VS Code in front `kAXFocusedUIElement` answers (as
+`caretInVSCodeTerminal` has relied on since 2026-10-06) — it is `kAXBoundsForRange` that answers a
+0×0 rect for every range, which `bounds()` rightly refuses.
+
+- **A caret-sized focused element is the caret** (`TerminalBinding.caretReading`, `caretSized`
+  60×60 pt): xterm.js reads keys through a textarea parked on the cursor cell — measured a 10×22
+  `AXTextField` at exactly the `❯ █` of a Claude Code prompt. Taken only after all three range
+  probes fail, so Terminal.app and IntelliJ's editor (a 1569×840 `AXTextArea` whose ranges answer)
+  keep their exact caret. Desk: `focusFrame.caret` on the prompt line, `halo.heads` armed, not crossed.
+- **VS Code's editor pane gives the line, not the column**: with `editor.accessibilitySupport: off`
+  Monaco's `inputarea` is 0×40 at the **line start** whatever the column (measured cols 1/20/40 →
+  same x). The pin stands at the start of the caret's line. Nothing outside the app knows the column.
+- **IntelliJ's terminal is unmeasured** (no terminal tool window was open). The log line now says
+  why a caret was missed — `no caret found in it (no focused element (-25212))`, `(focused AXTextArea
+  1569×840, no bounds for its caret)`, `(its caret … is outside the window)` — read it from his next
+  IntelliJ terminal sentence before building anything (a `/caret` on `live-coding` is the fallback).
+- `AXManualAccessibility` is still not set by the app (`terminal-binding.md`) — nothing here needs it.
 
 ## The heads stay up while the words travel to the caret (2026-09-15)
 
@@ -518,8 +539,8 @@ fade out foarte repede, după ce dictarea s-a injectat cu succes. În timp cât 
   `TerminalBinding.receivingCaret(target, in: frame)` beside the frame: the receiving app's focused
   element → selected range → bounds of the character **at** the caret (left edge kept; a zero-length
   range answers 0×0 in Terminal.app, a `\n` answers the rest of the line). Terminal.app gives its real
-  cursor (measured: just after `❯ `); VS Code gives nothing (no `AXManualAccessibility`), so it keeps
-  the window. A caret outside the window frame is dropped. `CaretHalo.rewindCaret` → the dust's ring
+  cursor (measured: just after `❯ `); VS Code its focused textarea's frame (2026-10-16, below the pin
+  section). A caret outside the window frame is dropped. `CaretHalo.rewindCaret` → the dust's ring
   centre, radius `RewindTimeline.caretOrbitRadius` 70 pt (`WT_CARET_ORBIT`); every other dress keeps
   the window. Log `⏪ the rewind aims at the middle of … — its caret at (x, y)` / `— no caret found in it`.
 - **The dust sweeps the lane right of the caret, not the caret itself** (2026-10-14, Victor: *"the

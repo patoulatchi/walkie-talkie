@@ -15551,3 +15551,27 @@ them onto the main list if I want."*
   scan is over 5 min old, in the background; the submenu shows the last one.
 - **Columns, because a month is ~45 folders** (1 300 px stacked): one column while it fits the
   screen, a column per section otherwise. Reviewed with `WT_SHOOT_WORKSPACE=1 WT_SHOOT_MENU=…`.
+
+## 2026-10-16 — the pin finds VS Code's caret
+
+Victor, dictating into a Claude Code prompt in VS Code's terminal panel: *"I don't see … the red pin
+that shows dictation at caret, or prompting at caret … I want to have that red icon pop."* The log had
+said `🟧 the words go to Code — … no caret found in it — no pin` for every VS Code sentence of the day.
+
+The rules blamed Electron's lazy AX tree. Probed with VS Code in front, the tree answered: focused
+element an `AXTextField` described `Terminal 1, ✳ petclinic — …`, selected range 0/0, **position
+(403, 951) size 10×22** — the cell under `❯ █` (his click: 828:1898 on the 2× shot = 414:949). What
+failed was `kAXBoundsForRange`: 0×0 at (0, 38) for `(0,1)` and `(0,0)`, which `caret()`'s
+`height > 0` guard turns into nil. xterm.js parks its helper textarea on the cursor, so the element's
+own frame is the caret. `caretReading` now falls back to a focused element no larger than 60×60 pt.
+
+The editor pane: Monaco's `inputarea` is 0×40 at (458, 339) — line 29's row exactly — but stays at
+the line's start for columns 1, 20 and 40 alike (accessibility support is `off` in his settings, so
+the textarea holds no text and only follows the line). The pin there says *which line*, at its left
+edge. IntelliJ's editor already answered through ranges (`AXTextArea` 1569×840, bounds 14×33 at the
+caret); its terminal could not be measured — no terminal tool window open — so the `no caret found`
+log line now carries the reason, to be read off his next sentence there.
+
+Desk (installed build, `hands-off`): VS Code terminal → `focusFrame.caret` (403, 155), heads armed,
+not crossed, log `… outlined`; VS Code editor → (458, 758), same.
+

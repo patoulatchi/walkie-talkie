@@ -1505,10 +1505,14 @@ final class TerminalBinding {
     /// range. Terminal.app answers with its real cursor (measured: just after
     /// `❯ ` in a Claude Code prompt); a zero-length range answers a 0×0 rect
     /// there, so the character *at* the caret is asked for and only its left
-    /// edge kept (a `\n` comes back as the whole rest of the line). VS Code does
-    /// not answer — its tree is asleep and `AXManualAccessibility` is not
-    /// used (see `focusedWindow`). A caret outside `window` is someone else's
-    /// (another tab, another window) and is dropped.
+    /// edge kept (a `\n` comes back as the whole rest of the line). VS Code
+    /// answers with a 0×0 rect for every range, but its focused element *is*
+    /// the caret: xterm.js and Monaco read keys through a hidden textarea parked
+    /// on the cursor cell (measured 2026-10-16: a 10×22 `AXTextField` at the
+    /// `❯ █` of a Claude Code prompt in the terminal panel) — so a caret-sized
+    /// focused element stands in when no range has bounds (`caretSized`). A
+    /// caret outside `window` is someone else's (another tab, another window)
+    /// and is dropped.
     static func receivingCaret(_ target: Target?, in window: CGRect) -> NSPoint? {
         let pid: pid_t?
         switch target?.handle {
@@ -1523,17 +1527,40 @@ final class TerminalBinding {
     /// `receivingCaret` for an app already named — `FocusFrame` asks it ~5 times
     /// a second for the frontmost one, read on the main thread and handed in.
     static func caret(pid: pid_t, in window: CGRect) -> NSPoint? {
+        caretReading(pid: pid, in: window).point
+    }
+
+    /// The largest focused element taken for the caret itself when no range
+    /// has bounds — VS Code's helper textarea is one cell (10×22 measured);
+    /// anything the size of a document is not a caret.
+    static let caretSized = CGSize(width: 60, height: 60)
+
+    /// `caret`, and when there is none, **why** — for the `🟧 … no caret found`
+    /// line, so the next app that hides its caret says how (2026-10-16).
+    static func caretReading(pid: pid_t, in window: CGRect) -> (point: NSPoint?, miss: String?) {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.3)
         var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              let f = focused, CFGetTypeID(f) == AXUIElementGetTypeID() else { return nil }
+        let got = AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused)
+        guard got == .success, let f = focused, CFGetTypeID(f) == AXUIElementGetTypeID() else {
+            return (nil, "no focused element (\(got.rawValue))")
+        }
         let element = unsafeBitCast(f, to: AXUIElement.self)
-        var rangeRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
-              let rv = rangeRef, CFGetTypeID(rv) == AXValueGetTypeID() else { return nil }
-        var range = CFRange()
-        guard AXValueGetValue(unsafeBitCast(rv, to: AXValue.self), .cfRange, &range) else { return nil }
+        var roleRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+        let role = roleRef as? String ?? "no role"
+        // Top-left, y downward — Accessibility's space.
+        func ownFrame() -> CGRect? {
+            var p: CFTypeRef?, s: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &p) == .success,
+                  AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &s) == .success,
+                  let pv = p, let sv = s, CFGetTypeID(pv) == AXValueGetTypeID(), CFGetTypeID(sv) == AXValueGetTypeID()
+            else { return nil }
+            var origin = CGPoint.zero, size = CGSize.zero
+            guard AXValueGetValue(unsafeBitCast(pv, to: AXValue.self), .cgPoint, &origin),
+                  AXValueGetValue(unsafeBitCast(sv, to: AXValue.self), .cgSize, &size) else { return nil }
+            return CGRect(origin: origin, size: size)
+        }
         func bounds(_ location: Int, _ length: Int) -> CGRect? {
             guard location >= 0 else { return nil }
             var r = CFRange(location: location, length: length)
@@ -1546,18 +1573,34 @@ final class TerminalBinding {
             guard AXValueGetValue(unsafeBitCast(o, to: AXValue.self), .cgRect, &rect), rect.height > 0 else { return nil }
             return rect
         }
-        // Top-left, y downward — Accessibility's space.
-        let caret: CGPoint
-        if let at = bounds(range.location, 1) {
-            caret = CGPoint(x: at.minX, y: at.midY)
-        } else if let before = bounds(range.location - 1, 1) {
-            caret = CGPoint(x: before.maxX, y: before.midY)
-        } else if let empty = bounds(range.location, 0) {
-            caret = CGPoint(x: empty.minX, y: empty.midY)
-        } else { return nil }
-        guard let primary = NSScreen.screens.first else { return nil }
+        var caret: CGPoint?
+        var rangeRef: CFTypeRef?
+        var range = CFRange()
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+           let rv = rangeRef, CFGetTypeID(rv) == AXValueGetTypeID(),
+           AXValueGetValue(unsafeBitCast(rv, to: AXValue.self), .cfRange, &range) {
+            if let at = bounds(range.location, 1) {
+                caret = CGPoint(x: at.minX, y: at.midY)
+            } else if let before = bounds(range.location - 1, 1) {
+                caret = CGPoint(x: before.maxX, y: before.midY)
+            } else if let empty = bounds(range.location, 0) {
+                caret = CGPoint(x: empty.minX, y: empty.midY)
+            }
+        }
+        let own = ownFrame()
+        if caret == nil, let own, own.height > 0,
+           own.width <= caretSized.width, own.height <= caretSized.height {
+            caret = CGPoint(x: own.minX, y: own.midY)
+        }
+        guard let caret else {
+            let size = own.map { String(format: " %.0f×%.0f", $0.width, $0.height) } ?? ""
+            return (nil, "focused \(role)\(size), no bounds for its caret")
+        }
+        guard let primary = NSScreen.screens.first else { return (nil, "no screen") }
         let point = NSPoint(x: caret.x, y: primary.frame.maxY - caret.y)
-        return window.insetBy(dx: -4, dy: -4).contains(point) ? point : nil
+        return window.insetBy(dx: -4, dy: -4).contains(point)
+            ? (point, nil)
+            : (nil, String(format: "its caret (%.0f, %.0f) is outside the window", point.x, point.y))
     }
 
     /// **Is it known that a keystroke would land nowhere?** (2026-10-14). `true`
