@@ -575,6 +575,20 @@ enum OverlayStates {
                                  inlineShots: [1: frames[1], 2: frames[2]])
             },
 
+            Shot(slug: "prompt-copied", group: "The held prompt", title: "The prompt, with what he copied where he copied it",
+                 when: "Auto-attach › Everything I Copy: text and an image copied while the prompt recorded.",
+                 note: "2026-10-17, Victor: *\"also display the copied text or image from clipboard in the preview\"*. A copied image is a numbered picture like any other (`[📸N 📋 copied]`), drawn under its caption; copied text is its own indented paragraph, like a highlight — it used to run on as plain words, indistinguishable from what he said.",
+                 shape: "panel", alpha: 1.0) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ petclinic — Fix the tax rounding", icon: terminal)
+                let frames = mockShots(2)
+                let said = "the build fails with this "
+                    + ShotMarker.Token.copied("error: cannot find symbol TaxRule in OrderService.java:42", app: "Terminal")
+                    + " and the icon should look like this [📸1 📋 copied] — fix both."
+                o.showSentPrompt(said, hold: 6, shots: frames, stamps: ["", "0:07"],
+                                 words: said, heard: heard,
+                                 inlineShots: [1: frames[1]])
+            },
+
             Shot(slug: "prompt-area-context", group: "The held prompt", title: "The prompt, a ✂️ area and the screen it was cut from",
                  when: "A wheel-drag area whose token is in the words.",
                  note: "2026-10-15, Victor: after the cut-out, the whole screen that goes with it — greyed outside the box, the box lit and ringed red — so it is plain that the entire screen is sent too. Drawn by `AreaContext`, never written to disk.",

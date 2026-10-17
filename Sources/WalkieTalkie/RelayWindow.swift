@@ -2994,10 +2994,10 @@ private let heardLabel = NSTextField(labelWithString: "")
             + promptFilms.map { (path: $0.poster, stamp: "", film: $0.seconds) }
     }
 
-    /// `[📸N…]`, `[selected: "…"…]`, `[chrome-selection-N: …]`, `[🎦N…]` — the
-    /// tokens `ShotMarker.Token` writes into the words.
+    /// `[📸N…]`, `[selected: "…"…]`, `[copied: "…"…]`, `[chrome-selection-N: …]`,
+    /// `[🎦N…]` — the tokens `ShotMarker.Token` writes into the words.
     private static let tokenPattern = try? NSRegularExpression(
-        pattern: #"\[(?:📸(\d+)[^\]\n]*|selected: "[\s\S]*?"(?: from app [^\]\n]*)?|chrome-selection-\d+:[^\]\n]*|🎦\d+[^\]\n]*)\]"#)
+        pattern: #"\[(?:📸(\d+)[^\]\n]*|(?:selected|copied): "[\s\S]*?"(?: from app [^\]\n]*)?|chrome-selection-\d+:[^\]\n]*|🎦\d+[^\]\n]*)\]"#)
 
     /// The shot numbers whose token is in `text` and which have a picture to draw.
     private func inlineShotNumbers(in text: String) -> [Int] {
@@ -3025,8 +3025,9 @@ private let heardLabel = NSTextField(labelWithString: "")
     /// - A `[📸N…]` token with a picture ends the paragraph: the token on a line
     ///   of its own as the picture's caption, the picture under it, left-aligned,
     ///   then the words carry on in a new paragraph.
-    /// - A highlight (`[selected: …]`) and a picked element (`[chrome-selection-N: …]`)
-    ///   are their own indented paragraph, in the token colour.
+    /// - A highlight (`[selected: …]`), a copy (`[copied: …]`, 2026-10-17) and a
+    ///   picked element (`[chrome-selection-N: …]`) are their own indented
+    ///   paragraph, in the token colour.
     /// - Every other token is coloured where it stands.
     ///
     /// The token text is kept verbatim — the panel is where he checks *where*
@@ -3086,7 +3087,7 @@ private let heardLabel = NSTextField(labelWithString: "")
                 pic.addAttribute(.paragraphStyle, value: picture, range: NSRange(location: 0, length: pic.length))
                 out.append(pic)
                 startParagraph = true
-            } else if raw.hasPrefix("[selected:") || raw.hasPrefix("[chrome-selection-") {
+            } else if raw.hasPrefix("[selected:") || raw.hasPrefix("[copied:") || raw.hasPrefix("[chrome-selection-") {
                 breakParagraph()
                 var attrs = token
                 attrs[.paragraphStyle] = block

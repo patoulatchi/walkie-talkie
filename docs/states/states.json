@@ -644,6 +644,18 @@
   {
     "alpha" : 1,
     "group" : "The held prompt",
+    "height" : 411,
+    "image" : "prompt-copied.png",
+    "note" : "2026-10-17, Victor: *\"also display the copied text or image from clipboard in the preview\"*. A copied image is a numbered picture like any other (`[📸N 📋 copied]`), drawn under its caption; copied text is its own indented paragraph, like a highlight — it used to run on as plain words, indistinguishable from what he said.",
+    "shape" : "panel",
+    "slug" : "prompt-copied",
+    "title" : "The prompt, with what he copied where he copied it",
+    "when" : "Auto-attach › Everything I Copy: text and an image copied while the prompt recorded.",
+    "width" : 749
+  },
+  {
+    "alpha" : 1,
+    "group" : "The held prompt",
     "height" : 331,
     "image" : "prompt-area-context.png",
     "note" : "2026-10-15, Victor: after the cut-out, the whole screen that goes with it — greyed outside the box, the box lit and ringed red — so it is plain that the entire screen is sent too. Drawn by `AreaContext`, never written to disk.",
