@@ -508,6 +508,7 @@ final class LocalWhisperSource: DictationSource {
         if let m = whisper.modelName { out["model"] = m }
         if let b = whisper.footprintBytes { out["bytes"] = b }
         out["live"] = liveHelperDescription
+        out["recognitionLanguage"] = RecognitionLanguage.selected.rawValue
         return out
     }
 

@@ -297,11 +297,11 @@ final class StatusItem: NSObject, NSMenuDelegate {
     /// The last dictation, again — see `AppDelegate.pasteLastDictation`. Greyed
     /// until there is one, like every other row that cannot act right now.
     private let pasteLast = NSMenuItem(title: "Paste last prompt", action: nil, keyEquivalent: "")
-    private let shot = NSMenuItem(title: "Take Screenshot", action: nil, keyEquivalent: "")
+    private let shot = NSMenuItem(title: "Take Screenshot (Control-click)", action: nil, keyEquivalent: "")
     /// **The other half of the shutter, and the only reason the wheel is
     /// touched at all in Logi mode.** A legend like the two rows around it: the
     /// gesture is a drag, which is not a thing a menu can perform.
-    private let areaShot = NSMenuItem(title: "Select Screen Area", action: nil, keyEquivalent: "")
+    private let areaShot = NSMenuItem(title: "Select Screen Area (Control-drag)", action: nil, keyEquivalent: "")
     /// **A legend row, and the only one here that is not a command.** ⌘⇧-click
     /// happens inside Chrome, in a page this app cannot reach from a menu — but
     /// it is a gesture the relay takes over, it used to be advertised on the chip
@@ -1579,6 +1579,21 @@ final class StatusItem: NSObject, NSMenuDelegate {
         // about the engines, so under them, between two lines; the tick drawn as
         // every other switch here draws it.
         engineSubmenu.addItem(.separator())
+        let language = NSMenuItem(title: "Language (local): \(RecognitionLanguage.selected.title)",
+                                  action: nil, keyEquivalent: "")
+        language.image = Self.symbolIcon("globe")
+        language.toolTip = "Applies to local live captions and transcription. Cloud engines use their own language settings."
+        let languageMenu = NSMenu()
+        languageMenu.autoenablesItems = false
+        for option in RecognitionLanguage.allCases {
+            let row = NSMenuItem(title: option.title, action: #selector(recognitionLanguagePicked(_:)), keyEquivalent: "")
+            row.target = self
+            row.representedObject = option.rawValue
+            row.image = option == RecognitionLanguage.selected ? Self.symbolIcon("checkmark") : Self.blankIcon
+            languageMenu.addItem(row)
+        }
+        language.submenu = languageMenu
+        engineSubmenu.addItem(language)
         let auto = NSMenuItem(title: AutoLocal.menuTitle, action: #selector(autoLocalClicked), keyEquivalent: "")
         auto.target = self
         auto.image = AutoLocal.isOn ? Self.symbolIcon("checkmark") : Self.blankIcon
@@ -1748,6 +1763,14 @@ final class StatusItem: NSObject, NSMenuDelegate {
 
     @objc private func localLiveClicked() {
         onToggleLocalLive?(!LocalLive.isOn)
+    }
+
+    @objc private func recognitionLanguagePicked(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let language = RecognitionLanguage(rawValue: raw) else { return }
+        RecognitionLanguage.selected = language
+        Log.info("local recognition language: \(language.title)")
+        applyEngineRow()
     }
 
     private func applyQuotaRow() {
@@ -2450,7 +2473,7 @@ final class StatusItem: NSObject, NSMenuDelegate {
     /// `blankIcon`, never `NSMenuItem.state`).
     private func applyAutoAttachRows() {
         autoAttachSubmenu.removeAllItems()
-        for kind in AutoAttach.Kind.allCases {
+        for kind in AutoAttach.Kind.allCases where kind != .screenshot {
             let row = NSMenuItem(title: kind.title, action: #selector(autoAttachClicked(_:)),
                                  keyEquivalent: "")
             row.target = self

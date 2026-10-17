@@ -917,6 +917,8 @@ private final class ReplyRoot: NSView {
         }
     }
     private func cursor(for c: Corner) -> NSCursor {
+        // Xcode 15's SDK does not declare this API, even behind #available.
+        #if compiler(>=6.0)
         if #available(macOS 15.0, *) {
             let pos: NSCursor.FrameResizePosition
             switch c {
@@ -927,6 +929,7 @@ private final class ReplyRoot: NSView {
             }
             return NSCursor.frameResize(position: pos, directions: .all)
         }
+        #endif
         return .crosshair
     }
     /// After the view replaced its predecessor under a still pointer.

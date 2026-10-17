@@ -255,6 +255,12 @@ final class LocalWhisper {
             return override
         }
         var candidates: [String] = []
+        // The managed local engine must also work when the login item starts
+        // before launchd's RELAY_WHISPER_PYTHON setup job has run.
+        let localEngine = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".walkie-talkie/local-engine/bin")
+        candidates.append(localEngine.appendingPathComponent("walkie-python").path)
+        candidates.append(localEngine.appendingPathComponent("python3").path)
         // A `swift build` run from a terminal already has the right one on PATH;
         // looking there first keeps a developer run on the same interpreter the
         // shell would have picked.
@@ -285,7 +291,12 @@ final class LocalWhisper {
     /// would have moved the error, not removed it.
     private static var helperEnvironment: [String: String] {
         var env = ProcessInfo.processInfo.environment
-        let dirs = ["/opt/homebrew/bin", "/usr/local/bin"]
+        // Imports beside the helper must not add __pycache__ to the signed
+        // app's Resources directory and invalidate its sealed contents.
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        let dirs = [FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".walkie-talkie/local-engine/bin").path,
+            "/opt/homebrew/bin", "/usr/local/bin"]
         var path = (env["PATH"] ?? "").split(separator: ":").map(String.init)
         for dir in dirs where !path.contains(dir) { path.append(dir) }
         env["PATH"] = path.joined(separator: ":")
@@ -443,7 +454,8 @@ final class LocalWhisper {
                 self.lastFailure = "the local model was not up"
                 done(nil); return
             }
-            guard let req = try? JSONSerialization.data(withJSONObject: ["wav": wav, "words": words] as [String: Any]) else {
+            guard let req = try? JSONSerialization.data(withJSONObject: ["wav": wav, "words": words,
+                "languages": RecognitionLanguage.selected.codes] as [String: Any]) else {
                 done(nil); return
             }
             var line = req
@@ -486,7 +498,8 @@ final class LocalWhisper {
     func transcribeWindow(pcm: String, _ done: @escaping (WindowResult?) -> Void) {
         queue.async { [weak self] in
             guard let self, self.ready, let stdin = self.toHelper,
-                  let req = try? JSONSerialization.data(withJSONObject: ["pcm": pcm, "segments": true] as [String: Any])
+                  let req = try? JSONSerialization.data(withJSONObject: ["pcm": pcm, "segments": true,
+                    "languages": RecognitionLanguage.selected.codes] as [String: Any])
             else { done(nil); return }
             var line = req
             line.append(0x0A)

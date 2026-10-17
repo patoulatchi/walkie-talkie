@@ -97,7 +97,8 @@ final class RebindHistory {
     /// on whatever background thread the bind ran on.
     func adopted(_ target: TerminalBinding.Target, spawned: Bool) {
         mutate { entries in
-            var entry = Entry(tty: target.handle.deviceTTY,
+            var entry = Entry(tty: target.bundleID == GhosttyBridge.bundleID
+                                    ? target.handle.restoreKey : target.handle.deviceTTY,
                               address: target.address,
                               label: target.label,
                               appName: target.appName,
@@ -168,7 +169,12 @@ final class RebindHistory {
     func rows(live: [String: String], boundAddress: String?, now: Date = Date()) -> [Row] {
         all.map { entry in
             let short = entry.tty.map { ($0 as NSString).lastPathComponent }
-            let liveTitle = short.flatMap { live[$0] }
+            let liveTitle: String?
+            if let key = entry.tty, key.hasPrefix(GhosttyBridge.restorePrefix) {
+                liveTitle = GhosttyBridge.read(id: String(key.dropFirst(GhosttyBridge.restorePrefix.count))).surface.map { $0.title ?? "Ghostty" }
+            } else {
+                liveTitle = short.flatMap { live[$0] }
+            }
             let isBound = entry.address == boundAddress
             let name = liveTitle ?? entry.title ?? entry.label
             var line = name

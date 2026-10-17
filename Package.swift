@@ -57,5 +57,6 @@ let package = Package(
             name: "WalkieTalkieTests",
             dependencies: ["WalkieTalkie", "ObjCTry"]
         ),
-    ]
+    ],
+    cxxLanguageStandard: .cxx14
 )

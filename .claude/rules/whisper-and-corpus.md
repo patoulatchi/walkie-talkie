@@ -17,6 +17,12 @@ Full history and reasoning: docs/journal.md — see the sections named after eac
 
 ## The local recogniser
 
+- **Recognition language is a menu choice (2026-10-17):** `Engine → Language (local)` persists `localRecognitionLanguage` via `RecognitionLanguage`; default French + English. Each WAV and live PCM request carries `languages`; one code forces the language, multiple codes restrict detection, an empty list enables unrestricted detection. No model restart is needed. Stored choice wins over `RELAY_WHISPER_LANGUAGES`. English/Romanian vocabulary prompts apply only to their matching language; other languages use no prompt. This supersedes the historical fixed `{ro,en}` rule below.
+
+- **Managed Python survives login ordering (2026-10-17):** without an explicit `RELAY_WHISPER_PYTHON`, probe `~/.walkie-talkie/local-engine/bin/walkie-python` then `python3` before system interpreters, and include that directory in the helper's PATH for its bundled ffmpeg. The login item can start before the LaunchAgent that exports the override; a successful `launchctl getenv` does not mean the already-running app inherited it.
+
+- **Keep the signed bundle immutable (2026-10-17):** `LocalWhisper.helperEnvironment` sets `PYTHONDONTWRITEBYTECODE=1`. Importing bundled `word_onsets.py` otherwise creates `Resources/__pycache__/word_onsets.*.pyc` after launch; `codesign --verify --deep --strict` then fails with a file added to the sealed bundle. Verify the installed app after both local helpers report ready, not only before launch.
+
 - **The local model is one of the Engine rows** (ElevenLabs is the default — `dictation-source.md`).
   It records through `MicRecorder` and transcribes with `mlx_whisper` (`pip install mlx-whisper`)
   plus `ffmpeg`; the default weights are `mlx-community/whisper-large-v3-turbo`, overridable with

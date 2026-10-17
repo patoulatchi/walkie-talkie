@@ -1139,6 +1139,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// All three are consumed by `deliver` or cleared by `dictationEnded`.
     private var caretPrompt = false
     private var cleanSentence = false
+    // Per recording, protected by stateLock and carried by Envelope. A mouse
+    // capture opts into attachments without changing the chosen destination.
+    private var screenshotMode = false
+    private var screenshotsEnabled: Bool {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return screenshotMode
+    }
     private var submitAfterClean = false
     /// **⚡ A quick question** (2026-10-09): a clean sentence whose words go to
     /// `QuickAsk` — a fast model, answering in the reply pop-up — instead of the
@@ -1300,6 +1307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// back, released, or dropped as a unit.
     private struct Message {
         let kind: String
+        var voiceOnly = false
         /// `var`, because the panel can hand back a corrected transcript: a local
         /// Whisper line is occasionally fluent nonsense, and the hold exists so
         /// that is catchable before it reaches an agent.
@@ -2477,6 +2485,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         hotkeys.onScreenshot = { [weak self] cursor in self?.plusOneShot(cursor: cursor) }
         hotkeys.onAreaShot = { [weak self] anchor, at in self?.areaShot(from: anchor, at: at) }
+        hotkeys.onPointerScreenshot = { [weak self] cursor, session in
+            guard let self, self.enableScreenshots(for: session) else { return }
+            self.plusOneShot(cursor: cursor, expectedSession: session)
+        }
+        hotkeys.onPointerArea = { [weak self] anchor, point, at, session in
+            guard let self, self.enableScreenshots(for: session) else { return }
+            self.areaShot(from: anchor, at: at, button: .left, firstPoint: point, expectedSession: session)
+        }
+        hotkeys.onPointerAreaEnd = { [weak self] point in
+            guard let self, self.pointerAreaToken != nil else { return }
+            self.pointerAreaReleasedSession = self.hotkeys.pointerCaptureSession
+            CropSelectionOverlay.dragMoved(toCG: point)
+            CropSelectionOverlay.endDrag()
+        }
         // **Wheel held and turned over the ring: the next halo** (2026-09-20).
         // The ring itself changing is the feedback; the chip's flash names it,
         // because nine of them are hard to tell apart in the corner of an eye.
@@ -2578,6 +2600,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .done: hint = nil
             }
             guard let self else { return }
+            if hint == nil { self.pointerAreaToken = nil }
             self.overlay.setCropPhase(hint)
             // The page's `⌘⇧` pill goes too, for the same drag — the page hears
             // no mouse during a crop either, so its own fade never fires, and it
@@ -2815,6 +2838,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // **`clean`: the plain sentence 🔽 → opens** (2026-10-08) — at the
             // caret, no context frame, every attachment refused until 🔼 → / 🔼 ↑
             // makes it a prompt (`refusesAttachment`).
+            self.stateLock.lock(); self.screenshotMode = false; self.stateLock.unlock()
             if clean { self.hotkeys.ownCleanSentence = true }
             let paste = self.replaceWispr || clean
             if paste {
@@ -2884,13 +2908,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             var said = text
             var words = words
             self.pendingAffect = nil
-            if !self.replaceWispr, !words.isEmpty {
+            if self.screenshotsEnabled, !self.replaceWispr, !words.isEmpty {
                 let a = self.applyingAffect(text: said, words: words, hops: nil, language: nil)
                 said = a.text
                 words = a.words ?? words
                 self.pendingAffect = a.report
             }
-            let text = self.resolvingMarkers(said, words: words.isEmpty ? nil : words)
+            let text = self.screenshotsEnabled
+                ? self.resolvingMarkers(said, words: words.isEmpty ? nil : words) : text
             // **It goes to the caret when that is where a real one would go.**
             // The route's whole claim is that a fabricated transcript enters
             // exactly where a spoken one does, and after 2026-09-08 that stopped
@@ -2903,7 +2928,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // destination): nothing has opened a microphone here, so there is no
             // sentence in flight to have decided anything.
             guard !self.replaceWispr else {
-                let line = self.caretLine(words: text)
+                let line = self.screenshotsEnabled ? self.caretLine(words: text) : self.cleanLine(words: text)
                 // Consumed here the way `stopLocalRecording` consumes it, so a
                 // route that opened a caret dictation does not leave the flag —
                 // and with it `hasDestination` — standing after the words land.
@@ -2933,7 +2958,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // As `deliver` sets it for a real sentence; `send` takes it.
                 if let engine = engine { self.pendingEngine = engine }
                 self.pendingHeard = self.heardLine(via: "test", engineLabel: engine ?? "")
-                self.send(kind: "dictation", text: text, app: "test")
+                self.send(kind: "dictation", text: text, app: "test", voiceOnly: !self.screenshotsEnabled)
             }
         }
         // The spawn's transcript, entering where a spoken one does — with the
@@ -3006,6 +3031,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 case "forward-down":
                     self.hotkeys.onGestureKamikaze?()
                     out = ["direct": "onGestureKamikaze"]
+                // Exercise the real pointer controller without posting a click
+                // into the user's foreground app. Capture stays in this prompt.
+                case "control-click" where self.listening:
+                    guard let screen = NSScreen.main else { break }
+                    let point = CGPoint(x: screen.frame.midX,
+                        y: (NSScreen.screens.first?.frame.maxY ?? 0) - screen.frame.midY)
+                    var consumed = true
+                    let types: [CGEventType] = [.leftMouseDown, .leftMouseUp]
+                    for type in types {
+                        guard let event = CGEvent(mouseEventSource: nil, mouseType: type,
+                            mouseCursorPosition: point, mouseButton: .left) else { consumed = false; break }
+                        event.flags = .maskControl
+                        consumed = self.hotkeys.primaryCapture(type, event) && consumed
+                    }
+                    out = ["direct": "primaryCapture", "consumed": consumed]
                 case "forward-up" where self.listening:
                     self.convertDictationToSpawn()
                     out = ["direct": "convertDictationToSpawn"]
@@ -3346,7 +3386,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     guard self.cleanHoldAt > 0 else { return }
                     let held = CFAbsoluteTimeGetCurrent() - self.cleanHoldAt
                     self.cleanHoldAt = 0
-                    guard self.cleanSentence else { return }
+                    // A Control-mouse capture may have promoted this held
+                    // sentence; releasing its start keys still ends it.
                     if edge == .shortcut || held < Self.cleanHoldFloor {
                         self.cancelDictationInFlight(reason: edge == .shortcut
                             ? "right ⌘⌥ was a shortcut"
@@ -3787,6 +3828,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // microphone just opened, so anything still pending belongs to something
         // that is over.
         abandonDictation("a new dictation started")
+        stateLock.lock(); screenshotMode = false; stateLock.unlock()
 
         // **A picture is taken for somebody who will read it.** A sentence bound
         // for an agent gets the screen and the ⌘C probe; one bound for the caret
@@ -3846,7 +3888,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // has to reach `selectionQueue` ahead of `syncSelectionWatch`'s seed or
         // the highlight it files would be read back as one already seen.
         // Not for a plain sentence: nothing it files would be delivered.
-        if !cleanSentence { probeRecentSelection() }
+        if screenshotsEnabled, !cleanSentence { probeRecentSelection() }
 
         listening = true
         // **The `💬` row belongs to a sentence the streaming engine is
@@ -4199,8 +4241,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let spokenText = result.text
         // **A plain sentence is the words he said and nothing else** (2026-09-23)
         // — taken off the flags here, once, so nothing below can read them twice.
-        let clean = cleanSentence && !cleanRedirected
-        let prompt = caretPrompt && !cleanRedirected
+        let plainCaret = cleanSentence && !cleanRedirected
+        let voiceOnly = !screenshotsEnabled
+        let clean = plainCaret || voiceOnly
+        let prompt = caretPrompt && !cleanRedirected && !voiceOnly
         let submitClean = clean && submitAfterClean
         // A question redirected to a terminal or a spawn mid-sentence lost its
         // flag there (`retarget`, `convertDictationToSpawn`).
@@ -4311,7 +4355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A caret sentence whose microphone close this side never saw — the
         // held right ⌘⌥, confirmed by Wispr's row — reaches here with the latch
         // still holding the previous sentence's answer.
-        if pasteMode || clean { latchedAtCaret = true }
+        if pasteMode || plainCaret { latchedAtCaret = true }
 
         // Somebody else already put the words on screen — Wispr Flow with the
         // wrap off, and nothing else today. Filed above, delivered by nobody.
@@ -4405,7 +4449,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pasteHint.pulse(reason: "a caret sentence has just landed")
             return
         }
-        send(kind: "dictation", text: result.text, app: app, latched: latched)
+        send(kind: "dictation", text: result.text, app: app, latched: latched, voiceOnly: voiceOnly)
     }
 
     /// The session is over, whichever way it ended.
@@ -6923,6 +6967,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // taking when there is somebody it is being taken *for*. A spawn counts
         // as somebody — the session it is about to open reads the same line.
         guard hasDestination else { return }
+        // Every recording starts with voice only, regardless of saved auto-attach
+        // preferences. Only an explicit Control-mouse capture opts in.
+        guard screenshotsEnabled else {
+            bookDictation()
+            DispatchQueue.main.async { [weak self] in self?.caretHalo.grow() }
+            return
+        }
         // **A clean dictation takes no picture** (Victor, 2026-09-23: *"butonul
         // de Back trebuie să pornească dictarea simplă, fără poze, fără
         // nimic"*). The back click's sentence is armed (`backStopsWispr`) from
@@ -7428,13 +7479,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // turned into a prompt (🔼 →, 🔼 ↑ — `cleanRedirected`), so the same
         // read, `cleanSentenceOpen`, refuses before the switch and lets through
         // after it. Below `ownDictation`, which `cleanSentenceOpen` reads.
-        hotkeys.relayPromptOpen = listening && !(cleanSentence && !cleanRedirected)
+        hotkeys.relayPromptOpen = listening && screenshotsEnabled && !(cleanSentence && !cleanRedirected)
         // …and that one is still plain, in the app's own words: the tap's Wispr arm
         // expires 12 s in when Wispr never opens its microphone, and the shutter
         // then took two pictures into a plain sentence (14:30:34/39, 2026-10-08).
-        hotkeys.relayPlainOpen = listening && cleanSentence && !cleanRedirected
-        let attachable = live && !hotkeys.cleanSentenceOpen
+        hotkeys.relayPlainOpen = listening && (!screenshotsEnabled || (cleanSentence && !cleanRedirected))
+        let attachable = live && screenshotsEnabled && !hotkeys.cleanSentenceOpen
         picker.dictating = attachable
+        hotkeys.pointerCaptureSession = live ? dictationStartedAt : nil
         // The in-page badge that says ⌘⇧ is live — the chip's old `⌘⇧` row,
         // drawn by the extension since 2026-10-07 (`inspect.js`, `showBadge`).
         music.setPickable(attachable && overlay.cropPhase == nil)
@@ -8278,6 +8330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         out["sentences"] = describeSentences()
         out["sentenceQueue"] = Self.sentenceQueueOn
         out["lastFailure"] = lastFailure.map { ["why": $0.why, "engine": $0.engine, "at": Outbox.iso($0.at)] } ?? NSNull()
+        out["screenshotsEnabled"] = screenshotsEnabled
         out["recoverable"] = cancelledAudio.map { ["path": $0.url.path, "duration": $0.duration,
                                                    "expiresAt": Outbox.iso($0.at.addingTimeInterval(300))] } ?? NSNull()
         out["live"] = elevenLiveSource.liveDescribe() ?? NSNull()
@@ -9558,6 +9611,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func terminalLine(_ m: Message) -> String {
+        if m.voiceOnly { return m.text ?? "" }
         var parts: [String] = []
         if let text = m.text, !text.isEmpty { parts.append(leading(m) + text) }
         if m.kind == "dictation", let text = m.text, !text.isEmpty {
@@ -10272,7 +10326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // over on the spot, so without somewhere to hang the send it would
             // race this read and lose every time.
             defer { if let then = then { DispatchQueue.main.async(execute: then) } }
-            guard let self = self, AutoAttach.isOn(.selection) else { return }
+            guard let self = self, self.screenshotsEnabled, AutoAttach.isOn(.selection) else { return }
             self.stateLock.lock()
             let opened = self.dictationStartedAt
             self.stateLock.unlock()
@@ -10305,6 +10359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// fired with no subject behind it, and a drag he made with his own hand is
     /// as deliberate as a shutter press.
     private func probeSelectionAfterDrag(how: String = "dragged") {
+        guard screenshotsEnabled else { return }
         stateLock.lock()
         let opened = dictationStartedAt
         stateLock.unlock()
@@ -10871,14 +10926,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// thread may ask, and it turns false the moment the sentence becomes a
     /// prompt (🔼 →, 🔼 ↑ — `relayPromptOpen`).
     private func refusesAttachment(_ what: String) -> Bool {
-        guard hotkeys.cleanSentenceOpen else { return false }
-        Log.info("\(what) refused — a plain dictation attaches nothing (🔼 → or 🔼 ↑ makes it a prompt)")
+        stateLock.lock()
+        let voiceOnly = dictationInFlight && !screenshotMode
+        stateLock.unlock()
+        guard voiceOnly || hotkeys.cleanSentenceOpen else { return false }
+        Log.info("\(what) refused — voice only until Control-click or Control-drag")
         return true
     }
 
-    static let plainAttachesNothing = "🧼 Plain dictation — 🔼 → makes it a prompt"
+    static let plainAttachesNothing = "Voice only — Control-click or Control-drag to attach a screenshot"
 
-    private func plusOneShot(cursor: NSPoint) {
+    /// Called on main before either capture callback. Stale releases cannot
+    /// activate attachments for the next recording; the destination stays put.
+    private func enableScreenshots(for session: Date) -> Bool {
+        guard listening, captureSessionMatches(session) else { return false }
+        stateLock.lock(); screenshotMode = true; stateLock.unlock()
+        if cleanSentence {
+            cleanSentence = false
+            cleanRedirected = false
+            submitAfterClean = false
+            caretPrompt = pasteMode
+            hotkeys.ownCleanSentence = false
+        }
+        syncBorrowedGestures()
+        return true
+    }
+
+    private func captureSessionMatches(_ expected: Date?) -> Bool {
+        guard let expected else { return true }
+        stateLock.lock(); defer { stateLock.unlock() }
+        return dictationInFlight && dictationStartedAt == expected
+    }
+
+    private func plusOneShot(cursor: NSPoint, expectedSession: Date? = nil) {
+        guard captureSessionMatches(expectedSession) else { return }
         guard hasDestination else { return }
         // **A plain dictation takes no picture, at the start or at the end**
         // (2026-09-23, Victor: *"there is no screenshot in a clean dictation"*).
@@ -10908,6 +10989,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // name is built from it, and a dictation that ends while
             // `screencapture` runs would otherwise turn a 1:52 into a timestamp.
             self.stateLock.lock()
+            if let expectedSession, self.dictationStartedAt != expectedSession || !self.dictationInFlight {
+                self.stateLock.unlock(); return
+            }
             let openNow = self.dictationInFlight
             let startedAt = self.dictationStartedAt
             self.stateLock.unlock()
@@ -10943,6 +11027,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let path = frame.path
 
             self.stateLock.lock()
+            if let expectedSession, self.dictationStartedAt != expectedSession || !self.dictationInFlight {
+                self.stateLock.unlock(); return
+            }
             let attaching = self.dictationInFlight
             self.shotMice[path] = frame.mouse
             self.shotSizes[path] = frame.size
@@ -11026,15 +11113,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `takenAt` is the **press**, not the release: the shot is named by where
     /// in the sentence he reached for it, and framing a box carefully is a
     /// second or two he should not be charged for.
-    private func areaShot(from anchor: NSPoint, at takenAt: Date) {
+    static let pointerCropStyle = CropSelectionStyle(
+        accent: .white,
+        hint: "Drag to select · Release to capture · Esc cancels",
+        movingSuffix: "⌘ move")
+    private var activeAreaToken: UUID?
+    private var pointerAreaToken: UUID?
+    private var pointerAreaReleasedSession: Date?
+
+    private func areaShot(from anchor: NSPoint, at takenAt: Date,
+                          button: CropDragButton = .middle, firstPoint: CGPoint? = nil,
+                          expectedSession: Date? = nil) {
+        guard captureSessionMatches(expectedSession) else { return }
         guard hasDestination else { return }
         if refusesAttachment("✂️ the area crop") { return }
         // Sampled with the gesture, like the shutter's: by the time the box is
         // drawn the front window may be one he switched to in order to frame it.
         let source = WindowContext.describe()
 
-        DispatchQueue.main.async { [weak self] in
+        let show = { [weak self] in
             guard let self = self else { return }
+            guard self.captureSessionMatches(expectedSession) else { return }
+            let token = UUID()
+            self.activeAreaToken = token
+            self.pointerAreaReleasedSession = nil
             // **Main, and not the tap thread.** The overlay puts a panel up per
             // screen and sets window frames; the same mistake made in an
             // `ElementPicker` callback took the whole app down with a `SIGTRAP`
@@ -11056,7 +11158,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // my selection"*). A drag means he is framing, not choosing; the
             // folder stays `~/workspace` unless one was already clicked.
             SpawnFolderMenu.hide()
-            CropSelectionOverlay.begin(button: .middle, from: anchor, style: Self.cropStyle) { selection in
+            let primary = button == .left
+            CropSelectionOverlay.begin(button: button, from: anchor,
+                                       style: primary ? Self.pointerCropStyle : Self.cropStyle) { selection in
+                // A second fast drag can open before the first one's delayed
+                // completion. Only the current overlay owns cleanup and capture.
+                guard self.activeAreaToken == token else { return }
+                let releasedSession = self.pointerAreaReleasedSession
+                self.activeAreaToken = nil
+                self.pointerAreaToken = nil
+                self.pointerAreaReleasedSession = nil
                 // Both ways out of the drag — a rectangle or a cancel — come
                 // through here, which is why the resume sits above the branch.
                 DesktopEffects.resume()
@@ -11070,12 +11181,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     Log.info("✂️ area selection cancelled")
                     return
                 }
+                // Release owns the capture even if recording stops during the
+                // overlay's short dismissal delay. A release after the stop or
+                // in another prompt does not own it.
+                if let expectedSession, releasedSession != expectedSession { return }
                 DispatchQueue.global(qos: .userInitiated).async {
                     self.fileArea(selection.rect, on: selection.screen,
-                                  takenAt: takenAt, source: source, movedTo: selection.movedTo)
+                                  takenAt: takenAt, source: source, movedTo: selection.movedTo,
+                                  expectedSession: expectedSession)
                 }
             }
+            self.pointerAreaToken = primary ? token : nil
+            if let firstPoint { CropSelectionOverlay.dragMoved(toCG: firstPoint) }
         }
+        if Thread.isMainThread { show() }
+        else { DispatchQueue.main.async(execute: show) }
     }
 
     /// The tail of `plusOneShot`, for a rectangle instead of a display: name it
@@ -11087,7 +11207,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// whole of what this needs.
     @discardableResult
     private func fileArea(_ rect: NSRect, on screen: NSScreen,
-                          takenAt: Date, source: String?, movedTo: NSRect? = nil) -> String? {
+                          takenAt: Date, source: String?, movedTo: NSRect? = nil,
+                          expectedSession: Date? = nil) -> String? {
+        guard captureSessionMatches(expectedSession) else { return nil }
         // A dragged rectangle is a picture in the same list and gets the same
         // marker; the gesture it belongs to is the release, which is here.
         let marker = reservePicture(at: takenAt)
@@ -11107,6 +11229,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let path = frame.path
         stateLock.lock()
+        if let expectedSession, dictationStartedAt != expectedSession || !dictationInFlight {
+            stateLock.unlock(); return nil
+        }
         let attaching = dictationInFlight
         shotAreas[path] = frame.area
         shotSizes[path] = frame.size
@@ -11711,7 +11836,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func send(kind: String, text: String? = nil, paths: [String] = [], app: String? = nil,
-                      latched: Latch? = nil) {
+                      latched: Latch? = nil, voiceOnly: Bool = false) {
         // **The outbox is not written either.** It used to be, on the grounds
         // that an agent might be watching the queue without a binding — the
         // `/relay` skill's original mode. Victor settled it on 2026-08-27: with
@@ -11841,7 +11966,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { [weak self] in self?.orphanFlush?.cancel() }
         }
 
-        let message = Message(kind: kind, text: text, selection: selection,
+        let message = Message(kind: kind, voiceOnly: voiceOnly, text: text, selection: selection,
                               selectionAt: selectionAt, selectionSource: selectionIn,
                               selectionMarker: selectionMarker,
                               extraSelections: extraSelections,
@@ -12559,7 +12684,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch target.handle {
         case .terminalApp(let t): tty = t
         case .tmux(_, let t): tty = t
-        case .ide, .keystroke: tty = nil
+        case .ide, .keystroke, .ghostty: tty = nil
         }
         guard let tty = tty else { return giveUp() }
         // AppleScript, so off the main thread — the same discipline
@@ -12677,6 +12802,7 @@ extension AppDelegate {
         var pendingPicks: [ElementPick] = []
         var dictationStartedAt: Date?
         var dictationInFlight = false, contextShotPending = false
+        var screenshotMode = false
     }
 
     /// Moves the sentence's fields out and leaves them as a new sentence finds
@@ -12725,6 +12851,7 @@ extension AppDelegate {
         e.elementMarkersInlined = elementMarkersInlined; e.frozenSelectionInlined = frozenSelectionInlined
         e.pendingShotOffsets = pendingShotOffsets; e.pendingPicks = pendingPicks
         e.dictationStartedAt = dictationStartedAt
+        e.screenshotMode = screenshotMode
         e.dictationInFlight = dictationInFlight; e.contextShotPending = contextShotPending
         contextAtWheelRelease = false
         pendingSelection = nil; pendingSelectionAt = nil; pendingSelectionIn = nil; pendingSelectionMarker = nil
@@ -12734,6 +12861,7 @@ extension AppDelegate {
         picturesTaken = 0; markersSpoken = [:]; markerCues = []
         shotMarkersInlined = []; selectionMarkersInlined = []; elementMarkersInlined = []; frozenSelectionInlined = false
         pendingShotOffsets = []; pendingPicks = []
+        screenshotMode = false
         dictationStartedAt = nil; dictationInFlight = false; contextShotPending = false
         stateLock.unlock()
         return e
@@ -12770,6 +12898,7 @@ extension AppDelegate {
         elementMarkersInlined = e.elementMarkersInlined; frozenSelectionInlined = e.frozenSelectionInlined
         pendingShotOffsets = e.pendingShotOffsets; pendingPicks = e.pendingPicks
         dictationStartedAt = e.dictationStartedAt
+        screenshotMode = e.screenshotMode
         dictationInFlight = e.dictationInFlight; contextShotPending = e.contextShotPending
         stateLock.unlock()
     }

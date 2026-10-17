@@ -35,6 +35,10 @@ final class TerminalBinding {
         /// which a tab index or a window id does not.
         case terminalApp(tty: String)
 
+        /// Ghostty's stable surface ID addresses a tab or split without focus.
+        /// 1.3.x has no tty property; newer builds can also use the shell guard.
+        case ghostty(id: String, tty: String?)
+
         /// A tmux pane, by its `%id`. Bound in preference to the tty whenever
         /// the tty turns out to be running tmux, because a tty binding there is
         /// quietly wrong: tmux hands the input to whichever pane is *active*
@@ -104,6 +108,7 @@ final class TerminalBinding {
         /// last in, not the one the relay was pointed at. The first word is still
         /// the tty, so every reader that takes `$1` is unchanged.
         var restoreKey: String? {
+            if case .ghostty(let id, _) = self { return GhosttyBridge.restorePrefix + id }
             guard let tty = tty else { return nil }
             if case .tmux(let pane, _) = self { return "\(tty) \(pane)" }
             return tty
@@ -112,6 +117,7 @@ final class TerminalBinding {
         var deviceTTY: String? {
             switch self {
             case .terminalApp(let tty):   return tty
+            case .ghostty(_, let tty):    return tty
             case .tmux(_, let tty):       return tty
             case .ide(let h):             return h.shellPID.flatMap { TerminalBinding.tty(ofPID: $0) }
             case .keystroke:              return nil
@@ -198,6 +204,7 @@ final class TerminalBinding {
             // owns the panel. It normally can; if it could not, saying so is
             // better than implying a check that will not happen.
             case .ide(let h): return h.shellPID != nil
+            case .ghostty(_, let tty): return tty != nil
             case .terminalApp, .tmux: return true
             }
         }
@@ -278,12 +285,13 @@ final class TerminalBinding {
     /// taken at the keypress — before any of that work has had a chance to move
     /// the focus.
     @discardableResult
-    /// Whether `bind` would even try — Terminal.app or an editor `IDEBridge`
+    /// Whether `bind` would even try — Terminal.app, Ghostty or an editor `IDEBridge`
     /// recognises. A pure bundle-id test, so it can be asked from an event tap
     /// on every app switch without touching the main thread; `bind` still does
     /// the real work and can still refuse (an editor with no terminal open).
     static func isBindable(bundleID: String) -> Bool {
-        bundleID == "com.apple.Terminal" || IDEBridge.kind(bundleID: bundleID) != nil
+        bundleID == "com.apple.Terminal" || bundleID == GhosttyBridge.bundleID
+            || IDEBridge.kind(bundleID: bundleID) != nil
     }
 
     func bind(app: NSRunningApplication) -> Target? {
@@ -294,6 +302,8 @@ final class TerminalBinding {
         let bound: Target?
         if bundleID == "com.apple.Terminal" {
             bound = bindTerminalApp(fallbackName: name, bundleID: bundleID, pid: app.processIdentifier)
+        } else if bundleID == GhosttyBridge.bundleID {
+            bound = ghosttyTarget()
         } else if let editor = IDEBridge.kind(bundleID: bundleID) {
             let window = Self.focusedWindow(pid: app.processIdentifier)
             // **Ask the editor.** Its extension knows which terminal is active,
@@ -399,6 +409,9 @@ final class TerminalBinding {
     /// `bind(tty:)` without the binding: the `Target` a delivery to that tab
     /// needs, the bound one left as it is — the answer panel's ☠️ sends there.
     func resolve(tty: String, pane: String? = nil, owner expected: TTYOwner? = nil) -> Target? {
+        if tty.hasPrefix(GhosttyBridge.restorePrefix) {
+            return ghosttyTarget(id: String(tty.dropFirst(GhosttyBridge.restorePrefix.count)))
+        }
         let device = Self.devicePath(tty)
         let short = (device as NSString).lastPathComponent
         let tabs = Self.liveTitles()
@@ -422,6 +435,28 @@ final class TerminalBinding {
     /// `ttys014` → `/dev/ttys014`; anything already a path is left alone.
     private static func devicePath(_ tty: String) -> String {
         tty.hasPrefix("/") ? tty : "/dev/" + (tty as NSString).lastPathComponent
+    }
+
+    private func ghosttyTarget(id: String? = nil) -> Target? {
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: GhosttyBridge.bundleID).first else {
+            noteBindFailure("Ghostty is not running")
+            return nil
+        }
+        let result = GhosttyBridge.read(id: id)
+        guard let surface = result.surface else {
+            noteBindFailure(result.missing ? "no Ghostty terminal open" :
+                "Ghostty did not answer — allow Automation access and enable macos-applescript (Ghostty 1.3+)")
+            Log.error("bind: Ghostty — \(result.reason ?? "surface not found")")
+            return nil
+        }
+        let folder = surface.directory.map { Self.label(forDirectory: $0) }
+        return Target(handle: .ghostty(id: surface.id, tty: surface.tty),
+                      label: folder ?? "Ghostty", address: GhosttyBridge.restorePrefix + surface.id,
+                      appName: "Ghostty", bundleID: GhosttyBridge.bundleID,
+                      folder: folder, title: surface.title,
+                      sourceFrame: id == nil || GhosttyBridge.read().surface?.id == surface.id
+                          ? Self.focusedWindow(pid: app.processIdentifier).frame : nil,
+                      boundAt: Date())
     }
 
     /// **The one place the binding changes**, and so the one place the history is
@@ -518,6 +553,9 @@ final class TerminalBinding {
         let fresh: String?
         switch existing.handle {
         case .terminalApp(let tty): fresh = Self.title(forTTY: tty)
+        case .ghostty(let id, _):
+            guard let surface = GhosttyBridge.read(id: id).surface else { return nil }
+            fresh = surface.title
         case .tmux(let pane, _): fresh = Self.tmuxPaneTitle(pane)
         // An IDE retitles its window as the open file changes, which is the same
         // kind of movement an agent's terminal title has — and this one costs an
@@ -549,6 +587,7 @@ final class TerminalBinding {
     private func currentFolder(for target: Target) -> String? {
         switch target.handle {
         case .terminalApp(let tty):     return Self.sessionLabel(onTTY: tty)
+        case .ghostty(let id, _):       return GhosttyBridge.read(id: id).surface?.directory.map { Self.label(forDirectory: $0) }
         case .tmux(let pane, _):        return Self.tmuxPaneLabel(pane)
         case .ide(let handle):          return handle.shellPID.flatMap { Self.folderLabel(shellPID: $0) }
                                             ?? IDEBridge.currentDirectory(of: handle).map { Self.label(forDirectory: $0) }
@@ -590,6 +629,11 @@ final class TerminalBinding {
     func checkAlive() -> Liveness {
         guard let target = target else { return .unknown }
         switch target.handle {
+        case .ghostty(let id, _):
+            guard Self.isRunning(bundleID: GhosttyBridge.bundleID) else { return .gone("Ghostty is gone") }
+            let result = GhosttyBridge.read(id: id)
+            if result.missing { return .gone("the bound Ghostty terminal was closed") }
+            return result.surface == nil ? .unknown : .alive
         case .terminalApp(let tty):
             // **Any process on the tty, not the *foreground* one** — which is
             // the weaker test on purpose, and the difference between this and
@@ -769,6 +813,25 @@ final class TerminalBinding {
         guard !line.isEmpty else { return .failed("nothing to send") }
 
         switch target.handle {
+        case .ghostty(let id, let boundTTY):
+            guard Self.isRunning(bundleID: GhosttyBridge.bundleID) else {
+                unbind()
+                return .targetGone("Ghostty is gone")
+            }
+            let result = GhosttyBridge.read(id: id)
+            guard let surface = result.surface else {
+                if result.missing { unbind(); return .targetGone("the bound Ghostty terminal was closed") }
+                return .failed("Ghostty did not answer")
+            }
+            // A previously guarded binding must never silently lose its guard.
+            if let tty = surface.tty ?? boundTTY {
+                guard surface.tty == tty else { return .failed("Ghostty could not confirm the terminal's tty") }
+                guard let command = Self.foregroundCommand(onTTY: tty) else {
+                    return .failed("Ghostty's foreground process could not be read")
+                }
+                if Self.refusesDelivery(command) { return .wouldRunAsShell(command) }
+            }
+            return GhosttyBridge.send(line, id: id) ? .delivered : .failed("Ghostty did not take the line")
         case .terminalApp(let tty):
             // **The tab, not the number** (TD21): a latched or bound tab that was
             // closed and whose tty a new tab took is gone — the words go to the
@@ -1281,6 +1344,8 @@ final class TerminalBinding {
         let pid: pid_t?
         var windowAt: CGPoint?
         switch target.handle {
+        case .ghostty(let id, _):
+            return GhosttyBridge.focus(id: id)
         case .terminalApp(let tty), .tmux(_, let tty):
             if case .tmux(let pane, _) = target.handle {
                 // The pane he picked, not whichever one the window last had
@@ -1488,6 +1553,10 @@ final class TerminalBinding {
         switch target.handle {
         case .terminalApp(let tty), .tmux(_, let tty):
             return terminalWindowFrame(tty: tty)
+        case .ghostty(let id, _):
+            guard GhosttyBridge.read().surface?.id == id else { return nil }
+            return NSRunningApplication.runningApplications(withBundleIdentifier: target.bundleID).first
+                .flatMap { focusedWindow(pid: $0.processIdentifier).frame }
         case .ide:
             return NSRunningApplication.runningApplications(withBundleIdentifier: target.bundleID).first
                 .flatMap { focusedWindow(pid: $0.processIdentifier).frame }

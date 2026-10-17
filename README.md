@@ -97,11 +97,13 @@ and cannot ask anything back, because you are not reading the terminal.
 | what | addressed by | delivered with | takes focus? |
 |---|---|---|---|
 | Terminal.app tab | its **tty** | `do script` | no |
+| Ghostty 1.3+ tab / split | its **surface ID** | native AppleScript action | no |
 | tmux pane | its **`%pane`** | `send-keys` | no |
 | VS Code / IntelliJ terminal | the editor's extension ([`victor-vsc`](https://github.com/victorrentea/victor-vsc), [`live-coding`](https://github.com/victorrentea/live-coding)) | the terminal widget's own API | no |
 | any other editor (fallback) | its pid | paste + Return | ~200 ms, then put back |
 
-- **It never types at a shell prompt.** Before *every* delivery it checks the foreground job; a shell, or anything that hands the line to one (`ssh`, `sudo`, `less`, `docker`…), is refused. The test fails closed. At a prompt, a dictated *"delete the build folder"* would be run.
+- **Guarded terminals refuse shell prompts.** Before *every* delivery they check the foreground job; a shell, or anything that hands the line to one (`ssh`, `sudo`, `less`, `docker`…), is refused. The test fails closed. At a prompt, a dictated *"delete the build folder"* would be run.
+- **Ghostty:** enable `macos-applescript` (the default) and allow Walkie Talkie to control Ghostty under **System Settings → Privacy & Security → Automation** when prompted. Bind the desired split with ⌘⌃B. Ghostty 1.3.x does not expose a TTY, so the app shows **“no shell guard”**: keep an agent running in that split. Newer Ghostty builds exposing the TTY use the normal guard. Closing the split ends the binding; switching tabs does not redirect it.
 - **A raw chunk plus Return, never a bracketed paste**: Claude Code wraps a paste in `<pasted_content>` and the model treats it as data. Up to four more Returns follow if the sentence is still sitting under `❯`.
 - Binding draws a blue rectangle that flies from the window into the chip; sending draws a white outline from the panel onto the terminal.
 
@@ -134,9 +136,9 @@ kamikaze
 
 ### Screenshots
 
-- **📸0 is automatic**: the screen as it was when you started talking (`auto`), with where the pointer was (`🖱️@x:y`).
-- **More shots**: the shutter (🔽 in Logi mode, the back button in Wheel mode) while a prompt records. The frame flies into the chip's 📸 and a red target blooms on the desktop where the pointer was. **Nothing is drawn into the picture**: a mark would cover what it points at.
-- **A region**: hold the wheel and drag during a dictation (`✂️x,y→x,y` in the token). ⌘ moves the box, ⌥ draws it from the middle, Esc calls it off. It is Victor Addons' crop, shared through `victor-mac-kit`.
+- **Voice only by default**: every recording starts without screenshots or other attachments, and sends only the transcript. The destination you selected stays the same.
+- **Enable screenshots**: Control-click while recording to capture the whole monitor containing the pointer and enable attachments for that recording. Once enabled, the existing shutter (🔽 in Logi mode, the back button in Wheel mode) works too. The frame flies into the chip's 📸. **Nothing is drawn into the picture**: the pointer position travels in its marker.
+- **A region**: hold Control and drag the left button during a recording (`✂️x,y→x,y` in the token). A gray overlay dims the screen outside the selection; release to capture, or press Esc / right-click to cancel. ⌘ moves the box and ⌃ keeps it square. This also enables attachments for that recording. The existing wheel drag works once enabled. Captured Control-clicks and Control-drags do not reach the app underneath; ordinary clicks, other modifier combinations, menu-bar clicks and clicks outside prompt recording keep their normal behavior.
 - **Two files per shot**: the retina original, and an 800 px copy that the agent reads. Same answers in the evals, about 40% fewer tokens.
 - `$WALKIE_SHOTS` must be exported in `~/.zshrc`. It points at `~/Library/Caches/ro.victorrentea.wispr-relay/shots/` (the newest 300 frames are kept).
 
@@ -178,6 +180,7 @@ Picked from the menu's **Engine** row:
 
 - <kbd>⌘⌃X</kbd> **transcribes on this Mac now**: the take being recorded or uploaded goes to the local model instead. A cloud failure falls back to it automatically.
 - The local interpreter is found by probing, not from `PATH` (an app launched by Finder gets launchd's bare `PATH`). `RELAY_WHISPER_PYTHON` and `RELAY_WHISPER_MODEL` override it.
+- **Engine → Language (local)** chooses the language for local transcription and live captions. The default is **French + English**; choose a single language to force it, or **Automatic (all languages)** for unrestricted detection. The choice is saved and applies to subsequent decode requests without reloading the model. Cloud engines keep their own language settings.
 - The **Mic** row picks the input. Automatic prefers a wireless receiver over the laptop microphone.
 
 ## Gestures

@@ -35,12 +35,12 @@ enum AutoAttach {
         var tooltip: String {
             switch self {
             case .selection:
-                return "Text you highlight just before or during a prompt rides along with it. "
+                return "After Control-click or Control-drag enables screenshots, text you highlight rides along. "
                     + "The 🔽 shutter still takes the highlight under it when this is off."
             case .screenshot:
                 return "A picture of the screen (📸0) when a prompt starts."
             case .clipboard:
-                return "Anything copied while a prompt records — ⌘C, Copy Image, files in Finder — "
+                return "After Control-click or Control-drag enables screenshots, anything copied — ⌘C, Copy Image, files in Finder — "
                     + "goes to the agent: text as [copied: …], an image as a numbered picture."
             }
         }

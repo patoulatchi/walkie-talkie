@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "victor-mac-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/victorrentea/victor-mac-kit.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "219364363a0bf9f42d379d08eafb5d93eb33c0ab"
+      }
+    }
+  ],
+  "version" : 2
+}

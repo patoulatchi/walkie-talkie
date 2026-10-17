@@ -88,7 +88,8 @@ RELAY_BOUND_FILE="$RELAY_HOME/bound-tty"
 RELAY_APP="/Applications/Walkie Talkie.app"
 RELAY_EXEC="$RELAY_APP/Contents/MacOS/Walkie Talkie"
 
-relay_pid() { pgrep -f "$RELAY_EXEC" 2>/dev/null | head -1; }
+# No running app is a valid launch path, not an errexit failure.
+relay_pid() { pgrep -f "$RELAY_EXEC" 2>/dev/null | head -1 || true; }
 
 # Block until the gate is open (see above). Exit status 3 when --max-wait ran out.
 # Exit status 4 when it refuses (the app has not answered for 60 s).

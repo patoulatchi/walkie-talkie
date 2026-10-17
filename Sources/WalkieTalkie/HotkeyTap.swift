@@ -54,6 +54,17 @@ final class HotkeyTap {
     /// `takenAt` is the press and not the subprocess.
     var onAreaShot: ((NSPoint, Date) -> Void)?
 
+    /// Main-thread callbacks for primary-button capture during a prompt.
+    var onPointerScreenshot: ((NSPoint, Date) -> Void)?
+    var onPointerArea: ((NSPoint, CGPoint, Date, Date) -> Void)?
+    var onPointerAreaEnd: ((CGPoint) -> Void)?
+    private var pointerCapture = PointerCaptureGesture()
+    private var pointerCaptureSessionFlag: Date?
+    var pointerCaptureSession: Date? {
+        get { stateLock.lock(); defer { stateLock.unlock() }; return pointerCaptureSessionFlag }
+        set { stateLock.lock(); pointerCaptureSessionFlag = newValue; stateLock.unlock() }
+    }
+
     /// **The wheel came up and this tap ate the event.** The selection is
     /// finished by the button, and the overlay watches the button through
     /// session state — which a swallowed release never reaches, so it would
@@ -1793,6 +1804,55 @@ final class HotkeyTap {
     /// **It is judged on the tap thread and nowhere else**, which is what makes
     /// the swallow decision raceless: the drag that arms the crop and the
     /// release that ends it are the same serial stream of events.
+    /// Primary click/drag capture is independent of the mouse gesture mode.
+    /// Only Control-left presses arm capture; ordinary clicks remain usable.
+    func primaryCapture(_ type: CGEventType, _ event: CGEvent) -> Bool {
+        let phase: PointerCaptureGesture.Phase
+        switch type {
+        case .leftMouseDown: phase = .down
+        case .leftMouseDragged: phase = .dragged
+        case .leftMouseUp: phase = .up
+        default: return false
+        }
+        guard event.getIntegerValueField(.eventSourceUserData) != Self.replayStamp else { return false }
+        let point = event.location
+        let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
+        let cocoa = NSPoint(x: point.x, y: primaryTop - point.y)
+        var canArm = true
+        if type == .leftMouseDown {
+            let modifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift]
+            canArm = event.flags.intersection(modifiers) == .maskControl && !areaCropping && !areaAwaitingDestination && !promptHeld
+            if let screen = NSScreen.screens.first(where: { $0.frame.contains(cocoa) }), cocoa.y >= screen.visibleFrame.maxY {
+                canArm = false
+            }
+            let window = CGWindowID(event.getIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent))
+            if window != 0,
+               let info = CGWindowListCopyWindowInfo(.optionIncludingWindow, window) as? [[String: Any]],
+               info.first?[kCGWindowOwnerPID as String] as? Int32 == getpid() {
+                canArm = false
+            }
+        }
+        let action = pointerCapture.handle(phase, point: point, session: pointerCaptureSession, canArm: canArm)
+        switch action {
+        case .pass: return false
+        case .consume: break
+        case .screenshot(let point, let session):
+            let cursor = NSPoint(x: point.x, y: primaryTop - point.y)
+            DispatchQueue.main.async { [weak self] in self?.onPointerScreenshot?(cursor, session) }
+        case .beginArea(let anchor, let point, let at, let session):
+            let from = NSPoint(x: anchor.x, y: primaryTop - anchor.y)
+            DispatchQueue.main.async { [weak self] in self?.onPointerArea?(from, point, at, session) }
+        case .moveArea(let point):
+            DispatchQueue.main.async { [weak self] in
+                CropSelectionOverlay.dragMoved(toCG: point)
+                self?.onAreaMoved?()
+            }
+        case .endArea(let point):
+            DispatchQueue.main.async { [weak self] in self?.onPointerAreaEnd?(point) }
+        }
+        return true
+    }
+
     private func areaDrag(_ type: CGEventType, _ event: CGEvent) -> Bool {
         guard event.getIntegerValueField(.mouseEventButtonNumber) == MOUSE_BUTTON_MIDDLE,
               event.getIntegerValueField(.eventSourceUserData) != Self.replayStamp else { return false }
@@ -2302,6 +2362,7 @@ private let VK_ESCAPE: CGKeyCode = 0x35        // esc
             .scrollWheel,
             .leftMouseDown,
             .leftMouseUp,
+            .leftMouseDragged,
             .rightMouseDown,
             .rightMouseUp,
         ]
@@ -2618,6 +2679,8 @@ private let VK_ESCAPE: CGKeyCode = 0x35        // esc
             return Unmanaged.passUnretained(event)
         }
 
+        if primaryCapture(type, event) { return nil }
+
         // **The wheel turned: the halo dial, in both modes, or nothing.** Judged
         // before either mode's wiring because neither reads a scroll — this is
         // the only branch that does, and everything it does not take goes out
@@ -2640,7 +2703,7 @@ private let VK_ESCAPE: CGKeyCode = 0x35        // esc
         // taken.** Since the bind moved onto ⬅️ held + the forward button
         // clicked, this mode needs the same one fact the wheel's chord needed:
         // *when did the left button go down*. The event is handed straight back
-        // either way — nothing in this file may ever swallow one.
+        // either way, except the prompt's primary-button capture above.
         if useLogiGestures {
             switch type {
             case .leftMouseDown:

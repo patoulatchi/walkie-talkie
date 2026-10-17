@@ -17,7 +17,9 @@ Rules for pointing the relay at a terminal, delivering into it, and keeping that
 
 ## What can be bound, and what the handle is
 
-- **Only Terminal.app tabs, tmux panes and editors `IDEBridge` recognises get bound; refuse everything else outright.** `bind` used to send every non-Terminal app down the paste path, so ⌘⌃B while looking at Chrome bound Chrome and typed the next dictation into whatever field held the caret — proven, with the screen locked, by binding `loginwindow`. → journal: *Only terminals get bound*
+- **Ghostty support (2026-10-17):** `com.mitchellh.ghostty` is also explicitly allowed. `GhosttyBridge` binds the focused surface and delivers raw `text:` plus Enter by its stable UUID, without focus or clipboard changes. Never substitute the currently focused surface when that UUID disappears. `ghostty:UUID` is the restore key (including history and restart). Ghostty 1.3.x has no TTY API and is announced as **no shell guard**, like an IDE bridge without a shell PID. Builds exposing `Gtty` use the normal foreground guard; an already guarded target cannot silently lose that guard. Do not infer a TTY from a title or working directory. Unicode stays literal in the action string: hex-encoding UTF-8 bytes through Ghostty 1.3's AppleScript parser corrupts non-ASCII text. Verify with `WT_GHOSTTY_INTEGRATION=1 swift test --filter GhosttyBridgeTests` (disposable raw-mode windows only).
+
+- **Only Terminal.app tabs, Ghostty surfaces, tmux panes and editors `IDEBridge` recognises get bound; refuse everything else outright.** `bind` used to send every non-Terminal app down the paste path, so ⌘⌃B while looking at Chrome bound Chrome and typed the next dictation into whatever field held the caret — proven, with the screen locked, by binding `loginwindow`. → journal: *Only terminals get bound*
 - **The handle is never a window.** A window reference is stale by the second dictation (tabs get dragged between windows, Spaces move, order changes); all three cases are things the terminal can re-resolve:
 
   | case | address | how it delivers | guarded? |

@@ -67,7 +67,7 @@ prefer the local engine.
 | `GET /ping` · `POST /pick` | the Chrome extension's mailbox; 503 outside a dictation |
 
 **`GET /test/state`** answers everything an assertion needs, read-only, ISO-8601 with ms:
-`listening` · `settling` · `speculative` · `capturing` · `isRecording` · `phase`/`phaseStatus` ·
+`screenshotsEnabled` (Control-mouse opt-in for this recording) · `listening` · `settling` · `speculative` · `capturing` · `isRecording` · `phase`/`phaseStatus` ·
 `wispr` (`state, since, status, row, lags, transitions`) · `wisprHearing` · `wrapMode`/`wrapWhy` ·
 `relayStarted`/`startedMode`/`intercepting` · `scratchpad…` · `historyRoute` · `ringUp` · `arrowsUp` ·
 `pasteHint` · `halo` · `chip` (rows as strings) · `pasteMode`/`atCaret`/`spawnPending`/`awaitingBind`/
@@ -128,3 +128,5 @@ upload made n ms late (Q12's order cases); `delayx2` delays the next two.
   when `WT_ELEVEN_QUOTA` (10000) − this month's `GET /v1/usage/character-stats` < `WT_ELEVEN_MIN_CREDITS`
   (3000) or the usage is unreadable; the report header and footer carry credits before/after.
   The run also wakes the display (`caffeinate`): the band's display link stops with the screen.
+
+- `POST /test/gesture {"name":"control-click","direct":true}` drives the actual `primaryCapture` down/up controller on the current recording, without posting mouse events globally. It enables screenshots and attaches one capture; start a fake recording first and cancel it afterward. Never invoke outside a controlled test recording.
