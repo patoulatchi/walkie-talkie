@@ -422,6 +422,14 @@ yields to `--label`).
   (`promptPointerAtShow`); until it has moved more than `promptPointerSlack` (2 pt) being inside is not
   a hover. **The held panel's words can be replaced from outside** (`replacePromptWords`: 🔼 ↓ marking
   it kamikaze, `POST /test/prompt {"do":"edit"}`), and `promptState` is `GET /test/state.prompt`.
+- **The panel's first line says who the words go to** (2026-10-17, Victor: *"the first line should
+  say to who it goes … similar to what I've picked in the session list if I send to a new session"*).
+  `RelayWindow.panelRecipient`, panel only (`sentPrompt != nil`): a spawn is `✨ <folder> — new
+  session` (the picked folder as its menu row spells it, `workspace` unpicked; the ✨ is the row's
+  icon either way — `panelSpawning`), a bound terminal `<folder@branch> — <task>` (`ActiveTerminals.task`
+  off the tab title, the reply pop-up's header wording; the folder alone with no task). Caret, ⚡ and
+  *bind to send* keep their rows. The chip beside the pointer is unchanged. Shots `prompt-recipient`,
+  `prompt-spawn`.
 - **Every dictated prompt panel ends with `Mic: <glyph> <device>` over `Engine: <name>`** (2026-10-06,
   Victor: *"clearly mention the engine that was used and the microphone that was used"*), right above
   the buttons. `AppDelegate.heardLine` builds it from the sentence's `via` (a local fallback, ⌘⌃X or

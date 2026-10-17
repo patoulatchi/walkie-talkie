@@ -575,6 +575,23 @@ enum OverlayStates {
                                  inlineShots: [1: frames[1], 2: frames[2]])
             },
 
+            Shot(slug: "prompt-recipient", group: "The held prompt", title: "The first line says who the words go to",
+                 when: "Bound to a Claude Code session whose tab title carries only its task.",
+                 note: "2026-10-17, Victor: *\"the first line should say to who it goes\"*. The folder the session started in, then the task its tab title carries — the reply pop-up's header wording. The title alone (`✳ Fix the tax rounding`) never said which folder.",
+                 shape: "panel", alpha: 1.0) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ Fix the tax rounding", icon: terminal)
+                o.showSentPrompt(transcript, hold: 6, words: transcript, heard: heard)
+            },
+
+            Shot(slug: "prompt-spawn", group: "The held prompt", title: "…and a new session, in the folder he picked",
+                 when: "🔼 ↑ mid-sentence, then a folder clicked in the session list.",
+                 note: "2026-10-17, Victor: *\"if it's a new session, not only the stars … similar to what I've picked in the session list\"*. The ✨ is the icon, the picked folder as its menu row spells it, then `new session`; the green button says `Start New`. Unpicked, the folder is `workspace`.",
+                 shape: "panel", alpha: 1.0) { o in
+                o.setBound(label: "petclinic", folder: "petclinic@main", title: "✳ Fix the tax rounding", icon: terminal)
+                o.setSpawnDestination("victor-macos-addons", mark: "✨", icon: RelayWindow.sparkleGlyph)
+                o.showSentPrompt(transcript, hold: 6, words: transcript, heard: heard, spawning: true)
+            },
+
             Shot(slug: "prompt-copied", group: "The held prompt", title: "The prompt, with what he copied where he copied it",
                  when: "Auto-attach › Everything I Copy: text and an image copied while the prompt recorded.",
                  note: "2026-10-17, Victor: *\"also display the copied text or image from clipboard in the preview\"*. A copied image is a numbered picture like any other (`[📸N 📋 copied]`), drawn under its caption; copied text is its own indented paragraph, like a highlight — it used to run on as plain words, indistinguishable from what he said.",

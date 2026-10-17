@@ -100,7 +100,7 @@
 <header class="page">
   <h1>Every state of the overlay</h1>
   <p class="sub">
-    All 64 states the Walkie&nbsp;Talkie chip and panel can be in — what each one
+    All 66 states the Walkie&nbsp;Talkie chip and panel can be in — what each one
     is, and the moment it is on screen. The pictures are the real views drawing
     themselves, not mockups.
   </p>
@@ -686,19 +686,39 @@
       <section class="card" id="prompt-inline">
         <header>
           <h3>The prompt, with its pictures where they were taken</h3>
-          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">749×584 pt</span></div>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">832×616 pt</span></div>
         </header>
-        <div class="shot"><img src="states/prompt-inline.png" width="749" height="584" style="opacity:1" alt="The prompt, with its pictures where they were taken"></div>
+        <div class="shot"><img src="states/prompt-inline.png" width="832" height="616" style="opacity:1" alt="The prompt, with its pictures where they were taken"></div>
         <p class="when">Word timings placed the markers (ElevenLabs, local): every <code>[📸N…]</code> token in the words.</p>
         <p class="note">2026-10-07, Victor: the panel must show <em>where</em> each thing landed, to check the annotation. A picture token ends its paragraph, captions the picture drawn under it — the ✂️ cut-out, or the frame — and the words carry on below. A highlight or a picked element is its own indented paragraph. Frames the words did not take (here the automatic one) stay in the strip.</p>
         <code class="slug">prompt-inline</code>
       </section>
+      <section class="card" id="prompt-recipient">
+        <header>
+          <h3>The first line says who the words go to</h3>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">385×136 pt</span></div>
+        </header>
+        <div class="shot"><img src="states/prompt-recipient.png" width="385" height="136" style="opacity:1" alt="The first line says who the words go to"></div>
+        <p class="when">Bound to a Claude Code session whose tab title carries only its task.</p>
+        <p class="note">2026-10-17, Victor: <em>&quot;the first line should say to who it goes&quot;</em>. The folder the session started in, then the task its tab title carries — the reply pop-up&#x27;s header wording. The title alone (<code>✳ Fix the tax rounding</code>) never said which folder.</p>
+        <code class="slug">prompt-recipient</code>
+      </section>
+      <section class="card" id="prompt-spawn">
+        <header>
+          <h3>…and a new session, in the folder he picked</h3>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">385×136 pt</span></div>
+        </header>
+        <div class="shot"><img src="states/prompt-spawn.png" width="385" height="136" style="opacity:1" alt="…and a new session, in the folder he picked"></div>
+        <p class="when">🔼 ↑ mid-sentence, then a folder clicked in the session list.</p>
+        <p class="note">2026-10-17, Victor: <em>&quot;if it&#x27;s a new session, not only the stars … similar to what I&#x27;ve picked in the session list&quot;</em>. The ✨ is the icon, the picked folder as its menu row spells it, then <code>new session</code>; the green button says <code>Start New</code>. Unpicked, the folder is <code>workspace</code>.</p>
+        <code class="slug">prompt-spawn</code>
+      </section>
       <section class="card" id="prompt-copied">
         <header>
           <h3>The prompt, with what he copied where he copied it</h3>
-          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">749×411 pt</span></div>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">832×427 pt</span></div>
         </header>
-        <div class="shot"><img src="states/prompt-copied.png" width="749" height="411" style="opacity:1" alt="The prompt, with what he copied where he copied it"></div>
+        <div class="shot"><img src="states/prompt-copied.png" width="832" height="427" style="opacity:1" alt="The prompt, with what he copied where he copied it"></div>
         <p class="when">Auto-attach › Everything I Copy: text and an image copied while the prompt recorded.</p>
         <p class="note">2026-10-17, Victor: <em>&quot;also display the copied text or image from clipboard in the preview&quot;</em>. A copied image is a numbered picture like any other (<code>[📸N 📋 copied]</code>), drawn under its caption; copied text is its own indented paragraph, like a highlight — it used to run on as plain words, indistinguishable from what he said.</p>
         <code class="slug">prompt-copied</code>
@@ -756,9 +776,9 @@
       <section class="card" id="prompt-long">
         <header>
           <h3>A long transcript</h3>
-          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">749×153 pt</span></div>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">832×153 pt</span></div>
         </header>
-        <div class="shot"><img src="states/prompt-long.png" width="749" height="153" style="opacity:1" alt="A long transcript"></div>
+        <div class="shot"><img src="states/prompt-long.png" width="832" height="153" style="opacity:1" alt="A long transcript"></div>
         <p class="when">A sentence that does not fit one line — the panel wraps and grows.</p>
         <p class="note">Width is capped at a third of the screen and the height at what is left of it; the transcript row is measured by asking the label, not by a parallel calculation, because any disagreement is a sentence that silently stops.</p>
         <code class="slug">prompt-long</code>
@@ -766,9 +786,9 @@
       <section class="card" id="prompt-selection-only">
         <header>
           <h3>A highlight with nothing said</h3>
-          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">334×155 pt</span></div>
+          <div class="tags"><span class="tag tag-panel" title="top-left of the screen, blurred, full opacity, ✕ on hover">panel</span><span class="tag">alpha 1.00</span><span class="tag">368×155 pt</span></div>
         </header>
-        <div class="shot"><img src="states/prompt-selection-only.png" width="334" height="155" style="opacity:1" alt="A highlight with nothing said"></div>
+        <div class="shot"><img src="states/prompt-selection-only.png" width="368" height="155" style="opacity:1" alt="A highlight with nothing said"></div>
         <p class="when">He stashed a selection and said nothing at all.</p>
         <p class="note">There is no transcript row — and the panel is still held, because a highlight sent by accident deserves the same Cancel the words get. It stopped being part of the text when it moved above it, so without this it would have gone straight out.</p>
         <code class="slug">prompt-selection-only</code>
@@ -795,7 +815,7 @@
       </section>
     </div>
 <footer>
-  Generated from <code>OverlayStates.swift</code> · repo at 0b46428 · 17 Oct 2026 · built 17 Oct 2026, 07:48
+  Generated from <code>OverlayStates.swift</code> · repo at 18d77c7 · 17 Oct 2026 · built 17 Oct 2026, 08:00
 </footer>
 <button class="toggle" onclick="document.body.classList.toggle('light')">Backdrop: dark / light</button>
 </body>

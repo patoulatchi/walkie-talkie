@@ -2933,7 +2933,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         // A picked spawn folder wears one too, and for the same reason a
         // binding does: the icon is what says *a terminal*, which is the whole
         // of "as if I were already bound to one".
-        let bound = boundLabel != nil || spawnIcon != nil
+        let bound = boundLabel != nil || spawnIcon != nil || panelSpawning
         titleGlyph.isHidden = !bound
         // **Here rather than in `setBound`**, because the glyph is no longer a
         // property of the binding: it depends on whether a sentence is in flight,
@@ -2950,7 +2950,8 @@ private let heardLabel = NSTextField(labelWithString: "")
         // rows below take over and the orange ring is on the one that pulses.
         let restGlyph = (wisprHearing ? Self.walkieWisprGlyph : nil)
             ?? Self.walkieIdleGlyph ?? Self.micGlyph
-        titleGlyph.image = collapsed ? restGlyph : (spawnIcon ?? boundIcon ?? Self.pinGlyph)
+        titleGlyph.image = collapsed ? restGlyph
+            : panelSpawning ? (spawnIcon ?? Self.sparkleGlyph) : (spawnIcon ?? boundIcon ?? Self.pinGlyph)
         titleRow.frame.size = NSSize(width: width, height: titleRowHeight)
         let column = bound ? glyphColumn : 0
         let gap = bound ? recordDotGap : 0
@@ -3999,6 +4000,7 @@ private let heardLabel = NSTextField(labelWithString: "")
     }
 
     private var identity: String {
+        if sentPrompt != nil, let recipient = panelRecipient { return recipient }
         // **A destination that does not exist yet still outranks one that does.**
         // ⇧ + the wheel sends this dictation to a session it is about to open,
         // and for the length of that sentence the bound terminal is not where the
@@ -4017,6 +4019,31 @@ private let heardLabel = NSTextField(labelWithString: "")
         if let title = boundTitle, !title.isEmpty { return Self.fitHead(title, 44) }
         return boundFolder ?? boundLabel ?? ""
     }
+
+    /// **The prompt panel's first line says who the words go to** (2026-10-17,
+    /// Victor: *"the first line should say to who it goes … similar to what I've
+    /// picked in the session list if I send to a new session"*). A new session
+    /// is the folder he picked, as its menu row spells it, then `new session` —
+    /// the ✨ alone said nothing about where. A bound terminal is its folder, then
+    /// the task its tab title carries — the reply pop-up's header wording
+    /// (`ActiveTerminals.task`): the title alone (`✳ Fix the tax rounding`) did
+    /// not say which folder the session started in. Nil for every other
+    /// destination (caret, ⚡, bind to send), which keeps its own row.
+    private var panelRecipient: String? {
+        if let spawn = spawnLabel {
+            guard spawnMark == "✨" else { return nil }
+            let folder = spawn.hasPrefix("✨ ") ? String(spawn.dropFirst(2)) : spawn
+            return "\(folder) — new session"
+        }
+        guard let folder = boundFolder ?? boundLabel, !folder.isEmpty else { return nil }
+        let name = folder.components(separatedBy: "@").first ?? folder
+        guard let task = ActiveTerminals.task(fromTitle: boundTitle, folder: name) else { return folder }
+        return Self.fitHead("\(folder) — \(task)", 80)
+    }
+
+    /// The panel's spawn wears the ✨ as its icon, picked folder or not — on the
+    /// chip an unpicked one rides as a mark in front of `Listening...` instead.
+    private var panelSpawning: Bool { sentPrompt != nil && spawnLabel != nil && spawnMark == "✨" }
 
     // The title used to be borrowable for a moment (`flashTitle`, for the "+1 📸"
     // receipt). Nothing needs it now that F3 reports itself in the recording row,
@@ -5020,6 +5047,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         promptShownAt = Date()
         promptPointerAtShow = NSEvent.mouseLocation
         promptPointerMoved = false
+        applyTitleText()         // the first line names the recipient (`panelRecipient`)
         layoutContent(animated: true)
         refreshOpacity()
 
@@ -5344,6 +5372,7 @@ private let heardLabel = NSTextField(labelWithString: "")
             setHovering(false)
             spawnHoldPointer = NSEvent.mouseLocation
         } else {
+            applyTitleText()
             layoutContent()
             reposition()
             refreshOpacity()
