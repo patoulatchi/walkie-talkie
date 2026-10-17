@@ -37,8 +37,9 @@
     same shader, on an ellipse the size of the SCREEN, not the canvas.
   · Audio comes from the app: `halo.audio(<base64 Float32>)` with the last
     1024 samples at 16 kHz. They are handed to the engine as the byte arrays
-    its analyser would have produced (`render({audioLevels})`), so no
-    AudioContext ever opens a microphone or an output device here.
+    its analyser would have produced (`render({audioLevels})`). The one
+    AudioContext butterchurn's constructor needs is closed right after it,
+    so the page holds neither a microphone nor an output device.
   · No engine bundled (`butterchurn.min.js` missing): a test pattern goes
     through the same keying pass, so the host's transparency, sizing and
     audio bridge can be checked without it.
@@ -269,13 +270,21 @@
           window.haloPresets || {});
       }
       if (!viz) {
-        // A context is required by the constructor; it is never resumed and
-        // nothing is connected to it, so no device is ever opened.
+        // A context is required by the constructor, and it is closed the
+        // moment the engine has it. "Never resumed, so no device is opened"
+        // was wrong (2026-10-16): the host allows autoplay
+        // (`mediaTypesRequiringUserActionForPlayback = []`), so a new context
+        // starts *running* and holds the speaker's output stream open at RMS 0
+        // for as long as the page lives. Victor Insomnia read that as music
+        // playing and would not unmute for the lid-shut heartbeat. The engine
+        // only touches the context in `connectAudio`/`sampleAudio`; with
+        // `render({audioLevels})` it never does.
         const actx = new (window.AudioContext || window.webkitAudioContext)();
         engineRate = actx.sampleRate || 48000;
         viz = (butterchurn.default || butterchurn).createVisualizer(actx, src,
                 { width: src.width, height: src.height, pixelRatio: 1 });
         viz.setRendererSize(src.width, src.height);
+        actx.close();
       }
       if (!presets[name]) return 'no such preset: ' + name;
       let p = presets[name], note = '';

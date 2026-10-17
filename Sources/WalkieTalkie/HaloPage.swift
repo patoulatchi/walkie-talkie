@@ -26,7 +26,8 @@ import WebKit
 ///   `underPageBackgroundColor`, in the halo's `ignoresMouseEvents` panel.
 /// - **Audio is pushed in**, thirty times a second, the last 1024 samples at
 ///   16 kHz; the page emulates its `AnalyserNode` from them. No
-///   `getUserMedia`, no second microphone, no `AudioContext` running.
+///   `getUserMedia`, no second microphone, no `AudioContext` running — the
+///   page *creates* one at load, and `silencePageAudio` suspends it.
 /// - **Failure has a floor**: the page missing, failing to load, not ready
 ///   two seconds after the ring is asked for, reporting no WebGL for a keyed
 ///   effect, or a preset that will not pin — each calls `onFailure`, and
@@ -117,6 +118,23 @@ final class HaloPage: NSView, HaloWebHost {
         return URL(fileURLWithPath: NSString.path(withComponents: common))
     }
 
+    /// **The page's `AudioContext` is suspended as soon as the page has run**
+    /// (2026-10-16). The page builds one at load for its browser mode (the
+    /// microphone button); autoplay is allowed here, so it starts *running* and
+    /// holds the speaker's output stream open at RMS 0 for as long as the page
+    /// lives — measured `IsRunningOutput = 1` on the WebKit GPU process.
+    /// Victor Insomnia read that as music playing and would not unmute for the
+    /// lid-shut heartbeat. Embedded, the page never reads the analyser (the
+    /// audio is pushed in), so a suspended context costs nothing. Done from
+    /// here, not in the page, because the page is vendored and re-vendoring
+    /// would wipe a hand edit; `MilkDropHalo`'s own page closes its context.
+    private static let silencePageAudio = WKUserScript(
+        // Unconditionally, and again on every turn to `running`: at document end
+        // the fresh context is still on its way up, so a `state` check alone
+        // finds it `suspended` and lets it start a moment later.
+        source: "if (typeof actx !== 'undefined') { const hush = () => { if (actx.state === 'running') actx.suspend(); }; actx.addEventListener('statechange', hush); actx.suspend(); }",
+        injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+
     /// `size` is the screen's, in points: the page lays every effect out
     /// from `innerWidth × innerHeight`, exactly as it does in a browser.
     init?(size: CGSize) {
@@ -125,6 +143,7 @@ final class HaloPage: NSView, HaloWebHost {
         config.mediaTypesRequiringUserActionForPlayback = []
         let bridge = Bridge()
         config.userContentController.add(bridge, name: "halo")
+        config.userContentController.addUserScript(Self.silencePageAudio)
         web = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: config)
         super.init(frame: NSRect(origin: .zero, size: size))
         bridge.owner = self
