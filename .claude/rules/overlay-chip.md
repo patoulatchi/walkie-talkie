@@ -448,6 +448,14 @@ yields to `--label`).
   2026-10-07 — by path the cut-out never equalled the frame, so every inlined picture came back in the strip); the
   automatic 📸0 is not in the preview's words, so it stays there. Editing swaps back to the plain
   words. Shot `prompt-inline`.
+- **The pointer is a yellow dot on the picture, never pixels in its caption** (2026-10-17, Victor:
+  *"pună o bulină galbenă pe captura ecranului acolo unde era mouse, în loc să îmi arate mouse cu
+  pixel … e inutil pentru mine"*). `RelayWindow.withoutPointer` cuts `🖱️@x:y` out of every token the
+  panel shows (`[📸2]`, `[📸0 auto]`); `RelayWindow.pointerDot` draws `systemYellow`, radius
+  `max(4, 5 % of the shorter side)`, ringed black 60 % — on the inline frame (a `🖱️` token only; an
+  area's picture is its cut-out) and on every strip thumbnail, 📸0 included. `AppDelegate` hands
+  `pointers: [N: fraction of the frame]` from `shotMice` / `shotSizes`, areas skipped. **Panel only**:
+  the envelope keeps `🖱️@x:y` and the JPEGs stay clean. Shots `prompt-shots`, `prompt-inline`.
 - **A ✂️ area brings the whole screen with it** (2026-10-15, Victor: *"put after them a picture of the
   entire screen … grayed out the rest and highlighting … the area that was selected … bordered in a
   bit of red rectangle, so it's clear that I'm sending also the entire screen"*). After the cut-out,

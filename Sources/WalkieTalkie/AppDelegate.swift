@@ -11910,11 +11910,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // And for a ✂️ area, the whole frame it was cut from (2026-10-15) —
             // the panel draws it greyed beside the cut-out (`AreaContext`).
             var inlineFrames: [Int: (path: String, pixels: CGSize)] = [:]
+            // And where the pointer was on each whole frame, as a fraction of
+            // it — the panel puts a yellow dot there instead of printing the
+            // pixels (2026-10-17). Not an area: its picture is the cut-out.
+            var pointers: [Int: CGPoint] = [:]
             for path in frames {
                 guard let n = ScreenCapture.number(of: path) else { continue }
                 inlineShots[n] = ScreenCapture.zoom(for: path) ?? ScreenCapture.handover(for: path)
                 if ScreenCapture.isArea(path), let pixels = ScreenCapture.pixelSize(of: URL(fileURLWithPath: path)) {
                     inlineFrames[n] = (ScreenCapture.handover(for: path), pixels)
+                }
+                if areas[path] == nil, let mouse = mice[path], let size = sizes[path],
+                   size.width > 0, size.height > 0 {
+                    pointers[n] = CGPoint(x: mouse.x / size.width, y: mouse.y / size.height)
                 }
             }
             if self.overlay.showSentPrompt(shown, hold: hold, shots: frames,
@@ -11927,6 +11935,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                            heard: kind == "dictation" ? heard : nil,
                                            inlineShots: inlineShots,
                                            inlineFrames: inlineFrames,
+                                           pointers: pointers,
                                            films: message.films.compactMap { f in
                                                f.poster.map { (poster: $0.path, seconds: f.duration) }
                                            },

@@ -430,6 +430,10 @@ private let heardLabel = NSTextField(labelWithString: "")
     /// corners are measured in). `richPrompt` draws it after the cut-out,
     /// greyed outside the box — `AreaContext`.
     private var promptInlineFrames: [Int: (path: String, pixels: CGSize)] = [:]
+    /// **Where the pointer was on each whole frame** (2026-10-17): shot number →
+    /// a fraction of the frame, top-left origin. Drawn as a yellow dot on the
+    /// picture, in the words and in the strip — `pointerDot`.
+    private var promptPointers: [Int: CGPoint] = [:]
     /// **The screen recordings riding with the held prompt** (2026-10-08, Victor:
     /// *"when I send the movie, it doesn't show up into the preview panel … show
     /// it … at the end, just like a picture, but with a red dot visible and a
@@ -2988,11 +2992,11 @@ private let heardLabel = NSTextField(labelWithString: "")
     /// the paths never agreed and every inlined picture came back in the strip.
     /// The recordings come last, newest last, as they were made after the
     /// screenshots they ride with or at least after the context shot.
-    private var stripShots: [(path: String, stamp: String, film: TimeInterval?)] {
+    private var stripShots: [(path: String, stamp: String, film: TimeInterval?, number: Int?)] {
         let drawn = Set(inlineShotNumbers(in: sentPrompt ?? ""))
         return promptShots.filter { ScreenCapture.number(of: $0.path).map { !drawn.contains($0) } ?? true }
-            .map { (path: $0.path, stamp: $0.stamp, film: nil) }
-            + promptFilms.map { (path: $0.poster, stamp: "", film: $0.seconds) }
+            .map { (path: $0.path, stamp: $0.stamp, film: nil, number: ScreenCapture.number(of: $0.path)) }
+            + promptFilms.map { (path: $0.poster, stamp: "", film: $0.seconds, number: nil) }
     }
 
     /// `[📸N…]`, `[selected: "…"…]`, `[copied: "…"…]`, `[chrome-selection-N: …]`,
@@ -3068,10 +3072,16 @@ private let heardLabel = NSTextField(labelWithString: "")
             if let n = shot, let path = promptInlineShots[n], let image = NSImage(contentsOfFile: path),
                image.size.width > 0, image.size.height > 0 {
                 breakParagraph()
-                out.append(NSAttributedString(string: raw + "\n", attributes: token))
+                out.append(NSAttributedString(string: Self.withoutPointer(raw) + "\n", attributes: token))
                 let scale = min(1, width * Self.inlineShotMaxWidthShare / image.size.width, Self.inlineShotMaxHeight / image.size.height)
                 let size = NSSize(width: (image.size.width * scale).rounded(), height: (image.size.height * scale).rounded())
                 var drawn = image
+                // The pointer is a yellow dot on the frame, not pixels in its
+                // caption (2026-10-17). Only a `🖱️` token's picture is the whole
+                // frame the fraction was measured on.
+                if raw.contains("🖱️"), let at = promptPointers[n] {
+                    drawn = Self.pointerDot(on: image, at: at, size: size)
+                }
                 // A ✂️ area: the whole screen it was cut from, after it on the
                 // same line — greyed outside the box, the box ringed red (and a
                 // move's destination green, the arrow white) — and two lines from
@@ -3095,7 +3105,7 @@ private let heardLabel = NSTextField(labelWithString: "")
                 out.append(NSAttributedString(string: raw + "\n", attributes: attrs))
                 startParagraph = true
             } else {
-                out.append(NSAttributedString(string: raw, attributes: token))
+                out.append(NSAttributedString(string: Self.withoutPointer(raw), attributes: token))
             }
         }
         var tail = String(text[cursor...])
@@ -3121,6 +3131,34 @@ private let heardLabel = NSTextField(labelWithString: "")
                 AreaContext.scaled(corners.box, pixels: frame.pixels, width: size.width))
     }
 
+    /// A token as the panel shows it: `🖱️@1204:388` cut out (2026-10-17, Victor:
+    /// *"pună o bulină galbenă pe captura ecranului acolo unde era mouse, în loc
+    /// să îmi arate mouse cu pixel"*) — the dot on the picture says where, and
+    /// two numbers in a frame's pixels said it to nobody. The agent's words keep
+    /// them.
+    static func withoutPointer(_ token: String) -> String {
+        token.replacingOccurrences(of: #"🖱️?@\d+:\d+"#, with: "", options: .regularExpression)
+    }
+
+    /// `image` at `size` with a yellow dot where the pointer was — `at` is a
+    /// fraction of the frame, top-left origin. Ringed dark so it still shows on
+    /// a yellow or white screen. Drawn on the panel only: the JPEGs the agent
+    /// reads stay clean.
+    static func pointerDot(on image: NSImage, at: CGPoint, size: NSSize) -> NSImage {
+        NSImage(size: size, flipped: true) { rect in
+            image.draw(in: rect, from: .zero, operation: .copy, fraction: 1, respectFlipped: true, hints: nil)
+            let r = max(4, min(rect.width, rect.height) * 0.05)
+            let c = CGPoint(x: at.x * rect.width, y: at.y * rect.height)
+            let dot = NSBezierPath(ovalIn: NSRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+            NSColor.systemYellow.setFill()
+            dot.fill()
+            dot.lineWidth = 1.25
+            NSColor.black.withAlphaComponent(0.6).setStroke()
+            dot.stroke()
+            return true
+        }
+    }
+
     private func layoutShots(width: CGFloat) -> CGFloat {
         shotViews.forEach { $0.removeFromSuperview() }
         shotViews = []
@@ -3133,6 +3171,9 @@ private let heardLabel = NSTextField(labelWithString: "")
             guard x + w <= width else { break }
             let view = NSImageView(frame: NSRect(x: 0, y: 0, width: w, height: height))
             view.image = image
+            if let n = shot.number, let at = promptPointers[n] {
+                view.image = Self.pointerDot(on: image, at: at, size: NSSize(width: w, height: height))
+            }
             view.imageScaling = .scaleProportionallyUpOrDown
             view.wantsLayer = true
             view.layer?.cornerRadius = 4
@@ -4954,6 +4995,7 @@ private let heardLabel = NSTextField(labelWithString: "")
                         heard: String? = nil,
                         inlineShots: [Int: String] = [:],
                         inlineFrames: [Int: (path: String, pixels: CGSize)] = [:],
+                        pointers: [Int: CGPoint] = [:],
                         films: [(poster: String, seconds: TimeInterval)] = [],
                         buttons: Bool = true, spawning: Bool = false) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -5007,6 +5049,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         }
         promptInlineShots = inlineShots
         promptInlineFrames = inlineFrames
+        promptPointers = pointers
         promptFilms = films
         promptSelection = quoted
         // Handed in with the prompt rather than through a setter of its own:
@@ -5358,6 +5401,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         promptShots = []
         promptInlineShots = [:]
         promptInlineFrames = [:]
+        promptPointers = [:]
         promptFilms = []
         promptSelection = nil
         promptWarning = nil

@@ -15620,3 +15620,14 @@ re-shows a border that is still up, so a switch queued just before `stop` cannot
 *display changed size → stop* guard is gone, and `FilmSheet` takes the cell from the tallest frame
 and aspect-fits each frame, centred — it used to stretch every frame into frame 0's shape.
 `FilmSheetTests` covers a 16:9 + 16:10 sheet.
+
+## 2026-10-17 — the panel shows the pointer as a yellow dot, not as pixels
+
+Victor: *"aș prefera ca panoul de previzualizare de prompturi să pună o bulină galbenă pe captura
+ecranului acolo unde era mouse, în loc să îmi arate mouse cu pixel … nu e greu de citit și e inutil
+pentru mine"*. The inline caption was the token verbatim (`[📸2🖱️@1204:388]`) — two numbers in a
+frame's pixels that answer nothing at a glance. The panel now cuts `🖱️@x:y` out of every token it
+shows and draws a yellow dot (ringed dark, so it survives a yellow or white screen) where the pointer
+was — on the inline frame and on every strip thumbnail, the automatic 📸0 included. The position
+travels as a fraction of the frame (`shotMice` / `shotSizes`), so it lands the same on the 800 px copy
+and the 65 pt thumbnail. Display only: the agent's envelope keeps the numbers, the JPEGs stay clean.
