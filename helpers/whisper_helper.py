@@ -443,6 +443,28 @@ def load_pcm(path):
     return mx.array(np.fromfile(path, dtype="<i2")).astype(mx.float32) / 32768.0
 
 
+def language_score(result):
+    """Compare decodes of the same audio by mean token log probability.
+
+    Empty text and repetition loops cannot win a language retry. Non-finite
+    scores occur on silence and must not accidentally win a comparison either.
+    """
+    if not (result.get("text") or "").strip() or _worst_ratio(result) > LOOP_CEILING:
+        return -math.inf
+    segments = result.get("segments") or []
+    if not segments:
+        return -math.inf
+    weighted, tokens = 0.0, 0
+    for segment in segments:
+        score = segment.get("avg_logprob", -math.inf)
+        if not math.isfinite(score):
+            return -math.inf
+        count = max(1, len(segment.get("tokens") or []))
+        weighted += score * count
+        tokens += count
+    return weighted / tokens
+
+
 def transcribe(path, words=WORDS, samples=None, languages=LANGUAGES):
     with quiet():
         # Decoded once, here, and handed to both halves as an array: the LID pass
@@ -452,11 +474,12 @@ def transcribe(path, words=WORDS, samples=None, languages=LANGUAGES):
             samples = A.load_audio(path)
         lang = pick_language(samples, languages)
 
-        def decode(prompt):
+        def decode(prompt, language=None):
             return mlx_whisper.transcribe(
                 samples,
                 path_or_hf_repo=MODEL,
-                language=lang,
+                language=lang if language is None else language,
+                task="transcribe",
                 initial_prompt=prompt,
                 verbose=False,
                 condition_on_previous_text=False,
@@ -468,6 +491,30 @@ def transcribe(path, words=WORDS, samples=None, languages=LANGUAGES):
         # English decoder context can pull French speech towards English.
         prompt = VOCABULARY_RO if lang == "ro" else VOCABULARY if lang == "en" else None
         res = decode(prompt)
+        # Language ID can prefer French for accented English (2026-10-22).
+        # Pinning that guess can make Whisper translate the whole recording.
+        # Use the app's existing -0.6 confidence floor to try the other allowed
+        # languages only on a shaky decode. Single-language and automatic modes
+        # keep their exact semantics. Require a clear improvement, not a tie.
+        if len(languages) > 1 and any(
+                not math.isfinite(s.get("avg_logprob", -math.inf))
+                or s.get("avg_logprob", -math.inf) < -0.6
+                for s in res.get("segments") or []):
+            for candidate in languages:
+                if candidate == lang:
+                    continue
+                candidate_prompt = (VOCABULARY_RO if candidate == "ro" else
+                                    VOCABULARY if candidate == "en" else None)
+                try:
+                    alternative = decode(candidate_prompt, candidate)
+                except Exception as error:  # keep the first transcript available
+                    print(f"language retry {candidate} failed: {error}", file=sys.stderr)
+                    continue
+                if language_score(alternative) > language_score(res) + 0.1:
+                    print(f"language retry: {lang} -> {candidate} "
+                          f"({language_score(res):.2f} -> {language_score(alternative):.2f})",
+                          file=sys.stderr)
+                    res, lang = alternative, candidate
     res["duration"] = len(samples) / A.SAMPLE_RATE
     res["_samples"] = samples
     res["retried"] = False

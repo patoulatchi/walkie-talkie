@@ -24,6 +24,34 @@ import AppKit
 /// useless for learning what he can do at all.
 final class StatusItem: NSObject, NSMenuDelegate {
 
+    private let permissionsItem = NSMenuItem(title: "Permissions…", action: nil, keyEquivalent: "")
+
+    private func addPermissionWarnings(to menu: NSMenu) {
+        permissionsItem.target = self
+        permissionsItem.action = #selector(permissionsClicked)
+        menu.addItem(permissionsItem)
+        menu.addItem(.separator())
+        applyPermissionWarnings()
+    }
+
+    private func applyPermissionWarnings() {
+        let missing = AppPermission.missingCount
+        permissionsItem.title = missing == 0 ? "Permissions…" : "Set Up Permissions…"
+        permissionsItem.image = Self.symbolIcon(missing == 0 ? "lock.shield" : "exclamationmark.triangle")
+        permissionsItem.toolTip = "Review access and open the matching System Settings pane."
+    }
+
+    @objc private func permissionsClicked() { PermissionsWindow.show() }
+
+    /// The window and the menu use these same non-prompting checks.
+    func permissionRowsForTest() -> [[String: Any]] {
+        AppPermission.core.map { permission in
+            ["title": "\(permission.name) permission missing…",
+             "missing": permission.state != .allowed, "enabled": true,
+             "settingsURL": permission.settingsURL.absoluteString]
+        }
+    }
+
     var onExit: (() -> Void)?
 
     /// Picked from **Autosend** — the checkbox that takes the pre-send panel out
@@ -933,6 +961,7 @@ final class StatusItem: NSObject, NSMenuDelegate {
         // auto-enabling off makes them mean what they say.
         menu.autoenablesItems = false
         menu.delegate = self
+        addPermissionWarnings(to: menu)
         header.isEnabled = false
         menu.addItem(header)
         menu.addItem(.separator())
@@ -2320,6 +2349,7 @@ final class StatusItem: NSObject, NSMenuDelegate {
         // work done for nothing, on the one path this feature promised to keep
         // cheap.
         guard menu === item.menu else { return }
+        applyPermissionWarnings()
         SessionLabel.refresh()
         applyHeader()
         applyAutoAttachRows()

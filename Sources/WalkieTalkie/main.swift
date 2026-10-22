@@ -51,6 +51,15 @@ while let arg = args.next() {
 // permission.
 relaunchThroughLaunchServicesIfNeeded()
 
+// Render permissions without starting a second copy of the app.
+if let out = ProcessInfo.processInfo.environment["WT_SHOOT_PERMISSIONS"] {
+    NSApplication.shared.setActivationPolicy(.accessory)
+    PermissionsWindow.shoot(to: out,
+        ready: ProcessInfo.processInfo.environment["WT_PERMISSIONS_READY"] == "1",
+        dark: ProcessInfo.processInfo.environment["WT_PERMISSIONS_DARK"] == "1")
+    exit(0)
+}
+
 // Draw the spawn folder menu into a PNG and quit — the only way to look at a
 // panel that no screen capture can contain. See `SpawnFolderMenu.shoot`.
 if let out = ProcessInfo.processInfo.environment["WT_SHOOT_MENU"] {
@@ -166,6 +175,8 @@ private func installAppMenu(_ app: NSApplication) {
     let appMenu = NSMenu()
     appMenu.addItem(withTitle: "About \(name)", action: #selector(AppMenuActions.about), keyEquivalent: "")
         .target = AppMenuActions.shared
+    appMenu.addItem(withTitle: "Permissions…", action: #selector(AppMenuActions.permissions), keyEquivalent: "")
+        .target = AppMenuActions.shared
     appMenu.addItem(.separator())
     appMenu.addItem(withTitle: "Hide \(name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
     appMenu.addItem(.separator())
@@ -183,6 +194,7 @@ private func installAppMenu(_ app: NSApplication) {
 private final class AppMenuActions: NSObject {
     static let shared = AppMenuActions()
     @objc func about() { AboutWindow.show() }
+    @objc func permissions() { PermissionsWindow.show() }
 }
 
 /// Re-exec through `open` when this bundle's executable was started by path.

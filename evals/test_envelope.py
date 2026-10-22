@@ -386,17 +386,11 @@ class FrameList(unittest.TestCase):
         self.assertNotIn("element picked in Chrome during dictation", self.line)
         self.assertNotIn("selected DOM element", self.line)
 
-    def test_the_hint_names_the_engine_that_transcribed(self):
-        """`[Transcribed in RO or EN by <engine>]` (2026-10-12).
-
-        It was `[Dictated in RO or EN]`, the engine cut out for cost on
-        2026-09-19 (*"Altfel ma costa rau."*). Victor put it back: *"let's call
-        it transcribed in RO or EN, and then you place the name of the engine
-        that transcribed it"* — the clause rides as hidden context now (the
-        `walkie-inbox` mod), so it no longer costs him a line on screen.
-        """
-        self.assertRegex(self.line, r"\[Transcribed in RO or EN by [^\]\n]+\]")
-        self.assertNotIn("[Dictated in RO or EN]", self.line)
+    def test_no_transcription_footer(self):
+        """Language and engine metadata stay out of delivered text (2026-10-22)."""
+        self.assertNotIn("[Transcribed", self.line)
+        self.assertNotIn("[Dictated", self.line)
+        self.assertNotIn("RO or EN", self.line)
         self.assertNotIn("hallucinate", self.line)
 
 @unittest.skip("spoken markers were retired 2026-09-18 — see the docstring")

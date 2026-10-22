@@ -306,8 +306,8 @@ private let heardLabel = NSTextField(labelWithString: "")
     private let localNowGlyph = NSImageView()
     private let localNowInfo = NSTextField(labelWithString: "")
     private let pasteInfo = NSTextField(labelWithString: "\(PasteHint.label)  \(PasteHint.keys)")
-    /// **`📨 N waiting — bind to send`** (2026-09-26) — sentences spoken with
-    /// nothing bound, held in memory for the next bind (`AppDelegate.awaitingBind`).
+    /// A five-second clipboard receipt for an unbound dictation. The pending
+    /// bind queue can outlive it without keeping anything beside the pointer.
     /// Victor, Q1: *"mi-ar trebui un cue vizual să știu că trebuie să las mesajul
     /// din memorie"*. Up for as long as one is held, **on the idle chip too** — the
     /// one row that may put a chip beside the pointer with nothing bound (*The
@@ -1489,7 +1489,7 @@ private let heardLabel = NSTextField(labelWithString: "")
         installEmojiRow(kamikazeRow, glyph: kamikazeGlyph, label: kamikazeInfo, emoji: "☠️")
         installEmojiRow(pasteRow, glyph: pasteGlyph, label: pasteInfo, emoji: "📋")
         installEmojiRow(localNowRow, glyph: localNowGlyph, label: localNowInfo, emoji: "💻")
-        installEmojiRow(heldRow, glyph: heldGlyph, label: heldInfo, emoji: "📨")
+        installEmojiRow(heldRow, glyph: heldGlyph, label: heldInfo, emoji: "📋")
 
         // Same face as every other row (see `titleFont`): it carries a CSS
         // selector, which was the argument for monospace here, and that argument
@@ -1963,10 +1963,10 @@ private let heardLabel = NSTextField(labelWithString: "")
         // row on the chip, and a chip measured without it is a chip 0 wide.
         var emojiRowsWidth: CGFloat = 0
         // Written before it is measured, for the selection row's reason below.
-        if heldCount > 0 { heldInfo.stringValue = Self.heldText(heldCount) }
+        if heldNotice.isVisible { heldInfo.stringValue = Self.heldText(heldCount) }
         if let text = localNowShown { localNowInfo.stringValue = text }
         for (on, label) in [(kamikaze, kamikazeInfo), (localNow != nil, localNowInfo), (pasteHint, pasteInfo),
-                            (heldCount > 0, heldInfo)] where on {
+                            (heldNotice.isVisible, heldInfo)] where on {
             label.sizeToFit()
             let lead = glyphColumn + recordDotGap
             emojiRowsWidth = max(emojiRowsWidth, lead + ceil(label.frame.width))
@@ -2164,7 +2164,7 @@ private let heardLabel = NSTextField(labelWithString: "")
 
         // **What is waiting for a bind, under where the words go** — see
         // `heldRow`. Often the only row on the chip: nothing bound, nothing said.
-        if heldCount > 0 {
+        if heldNotice.isVisible {
             heldInfo.stringValue = Self.heldText(heldCount)
             heldInfo.sizeToFit()
             layoutGlyphRow(heldRow, glyph: heldGlyph, label: heldInfo, width: innerWidth)
@@ -4644,16 +4644,38 @@ private let heardLabel = NSTextField(labelWithString: "")
     /// For `GET /test/state` — the row as drawn, or nil.
     var localNowRowText: String? { localNowShown }
 
-    /// How many sentences wait for a bind — see `heldRow`. Zero takes the row down.
-    private(set) var heldCount = 0
+    /// Keep the queue count separate from its five-second clipboard receipt.
+    private var heldNotice = HeldPromptNotice()
+    private var heldNoticeHide: DispatchWorkItem?
+    var heldCount: Int { heldNotice.count }
 
     func setHeldCount(_ n: Int) {
         guard heldCount != n else { return }
-        heldCount = n
+        let now = ProcessInfo.processInfo.systemUptime
+        heldNotice.update(count: n, now: now)
+        heldNoticeHide?.cancel()
+        heldNoticeHide = nil
+        if let deadline = heldNotice.deadline {
+            let hide = DispatchWorkItem { [weak self] in
+                guard let self, self.heldNotice.expire(now: ProcessInfo.processInfo.systemUptime) else { return }
+                self.heldNoticeHide = nil
+                self.layoutContent()
+            }
+            heldNoticeHide = hide
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, deadline - now), execute: hide)
+        }
         layoutContent()
     }
 
-    static func heldText(_ n: Int) -> String { "\(n) waiting — bind to send" }
+    /// Also used by the state catalogue to show the quiet state after expiry.
+    func hideHeldNotice() {
+        heldNoticeHide?.cancel()
+        heldNoticeHide = nil
+        heldNotice.dismiss()
+        layoutContent()
+    }
+
+    static func heldText(_: Int) -> String { "Ready to paste — ⌘V" }
 
     /// The `📋 Re-paste ⌘⇧P` row is up — see `pasteRow`; `PasteHint` times it.
     private(set) var pasteHint = false

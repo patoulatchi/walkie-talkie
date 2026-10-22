@@ -144,7 +144,7 @@ def spec(src: dict):
     return [
         {
             "row": ("🔼 forward", "click"),
-            "does": "caret · PROMPT (context shot, [Dictated…], attachments) · Enter iff Claude Code prompt",
+            "does": "caret · PROMPT (context shot, attachments) · Enter iff Claude Code prompt",
             "checks": [
                 ("F7 raises onPasteToggle", "HotkeyTap `case VK_F7`",
                  lambda: has(gesture_case(src, "VK_F7"), r"onPasteToggle\?\(\)")),
@@ -158,11 +158,11 @@ def spec(src: dict):
                              r"if !cleanSentence, caretPrompt \|\|[^\n]*\{\s*if contextAtWheelRelease.*?captureContext\(\)")),
                 ("the prompt's words are the full envelope", "AppDelegate `deliver`",
                  lambda: has(function(src, ad, "deliver"), r"caretLine\(words: result\.text, full: prompt\)")),
-                ("the full envelope is terminalLine (screen + [Transcribed…])", "AppDelegate `caretLine`",
+                ("the full envelope is terminalLine (screen + attachments)", "AppDelegate `caretLine`",
                  lambda: has(function(src, ad, "caretLine"),
                              r"if full \{.*?screen: screen.*?return Self\.terminalLine\(m\)")),
-                ("terminalLine carries [Transcribed in RO or EN by <engine>]", "AppDelegate `terminalLine`",
-                 lambda: has(function(src, ad, "terminalLine"), r"dictatedHint\(m\)")),
+                ("terminalLine omits the transcription footer", "AppDelegate `terminalLine`",
+                 lambda: not has(function(src, ad, "terminalLine"), r"dictatedHint|Transcribed|RO or EN")),
                 ("the prompt is delivered through the Claude Code check", "AppDelegate `deliver`",
                  lambda: has(function(src, ad, "deliver"), r"if prompt \{\s*deliverCaretPrompt\(")),
                 ("…which submits only into a detected Claude Code prompt, else pastes", "AppDelegate `deliverCaretPrompt`",

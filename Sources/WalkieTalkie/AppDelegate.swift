@@ -426,7 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// The engine that wrote a sentence, by the route its words came — the
-    /// panel's `Engine:` row and the envelope's `[Transcribed … by …]` clause.
+    /// panel's `Engine:` row.
     static func engineName(via: String, engineLabel: String) -> String {
         let wispr = via.hasPrefix("wispr") || via == "pasteboard"
         // The ☁️ / 💻 first, as everywhere an engine is named (`StatusItem.cloud`).
@@ -1122,7 +1122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// had."*
     ///
     /// `caretPrompt` — opened by the forward click (`startDictation(paste:)`):
-    /// the context frame at the press, `[Dictated in RO or EN]`, selections,
+    /// the context frame at the press, selections,
     /// picks and pictures, i.e. the terminal's envelope pasted at the caret; and
     /// **submitted** when the caret is a Claude Code prompt
     /// (`TerminalBinding.frontClaudePromptTTY`).
@@ -1393,11 +1393,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         /// carried for `via`'s reason: the panel holds every prompt for seconds
         /// and the engine is a menu row that may have been switched by then.
         ///
-        /// **Rendered into the prompt again since 2026-10-12** (`dictatedHint`).
-        /// From 2026-09-19 until then `dictatedHint`
-        /// stopped naming it, so this is now filed in `outbox.jsonl` and read
-        /// back from there — which is where a question about *which recogniser
-        /// heard that sentence* is actually asked, after the fact.
+        /// Filed in `outbox.jsonl` and shown in the panel, not appended to
+        /// the delivered prompt (2026-10-22).
         var engine: String = ""
         /// **Wispr gives text and no word timings, so no token stands in its
         /// words** — not even 📸0 in front of them (2026-09-30). Every frame
@@ -1456,6 +1453,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         status = StatusItem()
         status.onExit = { [weak self] in self?.endSession(reason: "menu bar Quit") }
+        PermissionsWindow.onRestart = { [weak self] in
+            guard let self, !self.restartAsked else { return }
+            self.restartAsked = true
+            self.restartWhenTheSentenceIsDelivered(announced: false)
+        }
         // **The engine.** The row is a readout of `source` and a way to change
         // it; `setEngine` is what decides, and it tells the row back what is
         // actually running — see its note on the sentence in flight.
@@ -3191,6 +3193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if Thread.isMainThread { rows = self.status.engineRowsForTest() }
             else { DispatchQueue.main.sync { rows = self.status.engineRowsForTest() } }
             out["engineRows"] = rows
+            var permissions: [[String: Any]] = []
+            if Thread.isMainThread { permissions = self.status.permissionRowsForTest() }
+            else { DispatchQueue.main.sync { permissions = self.status.permissionRowsForTest() } }
+            out["permissions"] = permissions
             out["whisperModelSelected"] = WhisperModels.selected
             out["whisperModelPending"] = self.whisperModelPending
             // Wispr's own shortcut table (C, W-C7): Q9 is coherent only while
@@ -3444,6 +3450,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             restoreBinding(tty: tty)
         }
         Log.info("ready — label \(SessionLabel.value), outbox at \(Outbox.outboxURL.path)")
+        if Bundle.main.bundleURL.pathExtension == "app" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { PermissionsWindow.showIfNeeded() }
+        }
         Log.info("voice corpus at \(VoiceCorpus.root.path)")
 
         // **The model comes up here, at launch, not on the first gesture.**
@@ -9002,89 +9011,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the same split the outbox already makes, said in one line instead of in
     /// keys — and it is what replaces the skill, which is no longer there to
     /// explain what a field called `screen` is for.
-    /// **The agent is told the words were spoken, and in which two languages
-    /// they might have been spoken.** This is the one clause here written to
-    /// change how the text is *read* rather than to add something to read.
-    ///
-    /// A transcript arrives looking exactly like something Victor typed, so a
-    /// mis-heard word reads as a word he chose. Measured on his own corpus, a
-    /// local recogniser turned `Wispr Relay` — what this app was called then —
-    /// into `risparerile ei`; an agent that knows the input came through a
-    /// microphone sounds that out, one that does not has no reason to try.
-    ///
-    /// **`RO or EN`, fixed, rather than the language the recogniser detected.**
-    /// It did carry the detected code for one commit, and the reason it no
-    /// longer does is that the code is not reliable enough to assert: a sentence
-    /// of Victor's plain Romanian came back labelled `en` in the very recording
-    /// used to test it. A clause naming the wrong language is worse than one naming
-    /// neither — it points the phonetics of a mis-heard word in a direction it
-    /// was never said in. Both, always, is true on every dictation and is still
-    /// the useful half: *which* two languages to sound a word out in. He asked
-    /// for exactly this, twice, and the second time after being shown the
-    /// mislabel: *"RO or EN"*.
-    ///
-    /// **Everything else went, also on his instruction** — *"skip the rest of
-    /// details - are obvious"*. The clause used to spell out what to do about a
-    /// word that makes no sense; a reader capable of acting on that advice does
-    /// not need it spelled out, and this rides on every single dictation.
-    ///
-    /// Only `dictation` gets it. A screenshot or a typed message was not spoken,
-    /// and a hint that invites phonetic guessing at text nobody dictated is an
-    /// invitation to misread it.
-    ///
-    /// **Its other failure mode is not a mis-heard word, it is a fluent invention.**
-    /// Measured over 442 dictations, 11 came back semantically broken — not
-    /// garbled, but confident sentences that were never said ("Nu uitați să vă
-    /// abonați" for a sentence about an invoice). The confidence gate catches 7
-    /// of them before they are sent; the other 4, and everything the relay's own
-    /// microphone path deliberately sends *below* the gate rather than
-    /// swallowing, arrive looking exactly like a correct transcript. That is the
-    /// one failure an agent cannot defend itself against by reading, so it is
-    /// told instead — which is what Victor asked for.
-    ///
-    /// **It no longer names the recogniser** (2026-09-12). It said *a local
-    /// Whisper* for as long as that was the only one; since Wispr Flow became
-    /// the default source the same envelope carries its sentences too, and a
-    /// clause naming the wrong engine is a clause the reader has to disbelieve
-    /// — *"elimină bucata aceea din text pentru că acum poate să fie și Wispr
-    /// Flow"*. What the reader needs is that the words were spoken and heard by
-    /// a machine, and that is true of both.
-    ///
-    /// **It names the recogniser again, and drops the warning** (2026-09-14, a
-    /// deliberate reversal of the note above). Two things changed under it.
-    /// The engine is a menu row now, so *which one heard this* is a question
-    /// with a different answer from one sentence to the next and the reader
-    /// cannot infer it — Victor: *"you can say instead … the name of the local
-    /// model or the fact that it was a Wispr Flow"*. And the hallucination
-    /// sentence had become redundant: *"the fact that it can hallucinate a
-    /// fluent sentence is a bit redundant, you can just strip this off"* — an
-    /// agent that knows the words came out of a speech recogniser already
-    /// discounts them, and the clause was spending a line of every envelope to
-    /// say so twice.
-    /// **`[Dictated in RO or EN]`, and nothing else** (2026-09-19). It was
-    /// `[this text dictated and transcribed in RO or EN by Scribe (scribe_v2)]`.
-    ///
-    /// Victor: *"In textul emis sunt footere. Simplifica primul la `[Dictated in
-    /// RO or EN]`. Altfel ma costa rau."* This clause rides on **every single
-    /// dictation**, so its length is not a matter of taste — it is a per-sentence
-    /// tax on every agent this relay talks to, paid for ever.
-    ///
-    /// What survives is the only part a reader acts on: *these words were spoken,
-    /// in one of two languages, and may be misheard accordingly*. Everything cut
-    /// was addressed to nobody in particular —
-    ///
-    /// - **`this text … transcribed`** said in six words what the brackets and
-    ///   the verb already say in two.
-    /// - **the recogniser's name** was added on 2026-09-14 for a real reason
-    ///   (*"you can say instead … the name of the local model or the fact that it
-    ///   was a Wispr Flow"*) and it is being taken back out for a better one: the
-    ///   engine is a **menu row and a log line**, both of which Victor reads, and
-    ///   no agent has ever done anything differently on being told it was Scribe
-    ///   rather than Wispr. It was paying tokens on every sentence to answer a
-    ///   question only its author asks, and he can already see the answer.
-    ///
-    /// The engine is still recorded per sentence in `outbox.jsonl` and still on
-    /// the chip; it simply stopped riding into the prompt. → `Message.engine`
     /// **A dictated question asks for a short answer back** (2026-10-07, Victor:
     /// *"when I am asking directly a question, there should be a way that the
     /// agent is able to reach me back … very briefly"*). Only on a prompt with a
@@ -9101,17 +9027,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// ceva. Atât. … Niciodată să nu fie folosit ca să mă întrebe Claude pe mine
     /// ceva."* — his question in, its answer out; nothing else rides it.
     static let questionHint = "[If I asked you a question, also run: walkie-reply \"<the answer in ≤2 short sentences>\" [--image <path> when a small picture says it better]. Only to answer me — never to ask me something, never to report work done.]"
-
-    /// **`[Transcribed in RO or EN by <engine>]`** (2026-10-12, Victor: *"let's
-    /// call it transcribed in RO or EN, and then you place the name of the engine
-    /// that transcribed it"*). Reverses the 2026-09-19 cut above (`questionHint` sits between): the clause now
-    /// rides as hidden context (the `walkie-inbox` mod's `splitTyped`), so it no
-    /// longer costs him a line of every transcript, and the engine is named the
-    /// way the panel's `Engine:` row names it (`engineName`). The mod matches
-    /// both spellings.
-    private static func dictatedHint(_ m: Message) -> String {
-        "[Transcribed in RO or EN by \(engineName(via: m.via, engineLabel: m.engine))]"
-    }
 
     /// **What a Replace Wispr dictation actually pastes: the words, and only
     /// what he deliberately attached** (2026-09-08).
@@ -9132,7 +9047,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// | `[look at: …]`, `[pointed at: …]` | ✓ | ✓ — identical wording |
     /// | `[selected: …]` | ✓ | ✓ — identical wording, since 2026-09-09 |
     /// | the context frame, `[Focused window: …]` | ✓ | — none is taken |
-    /// | `[Dictated in RO or EN]` | ✓ | — |
     ///
     /// **Why the language hint goes and the paths stay.** Both are addressed to a
     /// reader, and the difference is who is certain to be one. A frame's path and
@@ -9157,7 +9071,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// **`full` is the forward click's caret *prompt*** (2026-09-23) — the whole
     /// terminal envelope, `terminalLine` itself: the context frame as picture
-    /// zero with its leading `auto` token, `[Dictated in RO or EN]`, the
+    /// zero with its leading `auto` token, the
     /// highlights, the picks, the films. Victor: *"The forward click should be
     /// transcribing, basically prompting, at the carrot. There will be those
     /// metadata, the screenshot of the screen, the fact that is dictated, and
@@ -9615,8 +9529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var parts: [String] = []
         if let text = m.text, !text.isEmpty { parts.append(leading(m) + text) }
         if m.kind == "dictation", let text = m.text, !text.isEmpty {
-            parts.append(dictatedHint(m))
-            // **`[voice: hesitant]` / `[voice: tense]`, beside the hint, or
+            // **`[voice: hesitant]` / `[voice: tense]`, beside the words, or
             // nothing** (2026-09-27) — what the transcript lost, never a number.
             if let tag = m.affect?.verdict.tag { parts.append(tag) }
             if text.contains("?") { parts.append(questionHint) }
@@ -11982,6 +11895,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                               deliveryKind: deliveryKind, target: spawn ? nil : target,
                               affect: affect)
 
+        // Manual paste must be ready before the preview appears, not only
+        // after its countdown commits the prompt (2026-10-22). Use the full
+        // envelope here too, so attachments travel with an immediate ⌘V.
+        // `commit` writes it again after any edits, without sending early.
+        if kind == "dictation", let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let line = Self.terminalLine(message)
+            lastDictation = line
+            holdOnClipboard(line, why: "the transcript is ready")
+        }
+
         // Show what is about to go out — selection included, since that is part
         // of the prompt the agent receives, not a separate thing.
         let shown = Self.promptPreview(text: text, selection: selection,
@@ -12110,9 +12033,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the rule but the rule itself: that mode builds no envelope at all, so the
     /// words *are* the whole message. `pasteText` sets this for it.
     ///
-    /// Set at `commit`, so a cancelled prompt does not overwrite the last thing
-    /// that did go out, and after the edit has been folded in — the corrected
-    /// words are the ones that were sent.
+    /// Set when the complete prompt is ready, before its preview appears,
+    /// and refreshed at `commit` after edits. Manual paste never waits for
+    /// the review countdown.
     private var lastDictation: String?
 
     /// **The newest sentence in the log, read once and remembered** — the answer
@@ -12408,8 +12331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var m: Message
         let expiry: DispatchWorkItem
     }
-    /// **The chip counts them** (`📨 N waiting — bind to send`, Q1's visual
-    /// cue) — every change, whoever made it, lands here.
+    /// Queue changes feed the short clipboard receipt. Its five-second
+    /// visibility is independent of how long these messages remain held.
     private var awaitingBind: [Held] = [] {
         didSet { overlay?.setHeldCount(awaitingBind.count) }
     }
@@ -12429,9 +12352,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self = self, let i = self.awaitingBind.firstIndex(where: { $0.id == id }) else { return }
             self.awaitingBind.remove(at: i)
             Log.info("⏳ held dictation expired — never bound (\(self.awaitingBind.count) still held)")
-            // Said out loud, because the alternative is a sentence he believes
-            // is still going to arrive somewhere. ⌘⇧P is the way back to it.
-            self.overlay.flash("⏳ held dictation expired — ⌘V to paste it", duration: 4)
+            // The clipboard still has the words. Expiring the internal bind
+            // queue must not revive a notice he already dismissed by waiting.
         }
         promptSerial += 1
         awaitingBind.append(Held(id: id, serial: promptSerial, m: m, expiry: expiry))
@@ -12440,10 +12362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Log.info("⏳ nothing bound — holding \(words) words for the next bind, \(Int(Self.bindWait / 60)) min"
                  + (n > 1 ? " (\(n) sentences held, delivered in order)" : ""))
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.bindWait, execute: expiry)
-        if !quietly {
-            overlay.flash(n > 1 ? "📨 \(n) held — bind a terminal to send them"
-                                : "📨 held — bind a terminal to send it", duration: 3)
-        }
+        if quietly { overlay.hideHeldNotice() }
     }
 
     /// Called from `showBound`, which is the one place every route into a

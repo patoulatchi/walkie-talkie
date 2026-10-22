@@ -14,6 +14,12 @@ Rules for the chip that rides the pointer (and the panel it grows into): what ea
 it is drawn, which loops may relayout, and how the states catalogue is kept honest.
 Full history and reasoning: docs/journal.md — see the sections named after each rule below.
 
+## Unbound clipboard receipt (2026-10-22)
+
+- After an unbound transcript is ready, show `📋 Ready to paste — ⌘V` for **five seconds**, then remove the row and the idle window. No binding instruction, no persistent queue count, and no second flash when the internal five-minute hold expires.
+- `HeldPromptNotice` keeps notice visibility separate from the queue count. A new transcript renews the five-second deadline; an older entry leaving the queue must not renew or revive it. The clipboard remains untouched. `HeldPromptNoticeTests` covers the deadline and queue changes.
+- The historical persistent `held-waiting` row and `flash-held` below are superseded. The catalogue now includes `held-waiting` (receipt) and `held-waiting-expired` (no window).
+
 ## The states page is part of every change
 
 - **No change to the overlay is finished until `docs/overlay-states.html` is rebuilt.**
@@ -56,7 +62,7 @@ yields to `--label`).
 
 | state | label |
 |---|---|
-| idle **and unbound** | **nothing at all — no window on screen.** See *The pointer is clean when nothing is bound*. **The one exception: a sentence waiting for a bind** — `📨 N waiting — bind to send` (2026-09-26) |
+| idle **and unbound** | **nothing at all — no window on screen.** See *The pointer is clean when nothing is bound*. **The brief exception: a completed unbound transcript** — `📋 Ready to paste — ⌘V`, for five seconds (2026-10-22) |
 | idle, bound | the destination app's icon + `petclinic@main` — no state word: "standing by" is what he can already infer from nothing happening |
 | dictating | `🤖 ai@master`, unchanged, **plus the recording row below it** |
 | bound to a terminal | the destination app's icon + `petclinic@main`; the 🤖 is *replaced*. See *What the chip says when bound* |

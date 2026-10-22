@@ -14,6 +14,19 @@ Full history and reasoning: docs/journal.md — see the sections named after eac
 
 ## The header and the menu's job
 
+- **One permissions recovery window (2026-10-22):** the always-visible `Permissions…`
+  menu row (also in the app menu) reads `Set Up Permissions…` when core access is missing.
+  `PermissionsWindow` shows Microphone, Accessibility, Screen Recording and Automation together,
+  each linked to its own System Settings privacy pane. `AppPermission` owns the non-prompting
+  checks shared with `GET /engine.permissions`. Automation says `Managed per app`, not a made-up
+  granted state. A microphone request is made only on an explicit `Allow Microphone…` click
+  when its status is `notDetermined`; opening the window never prompts. Live checks refresh once
+  per second while visible. `Show App in Finder` selects the actual bundle for re-adding it;
+  `Restart Walkie Talkie` uses the existing dictation-safe restart flow. The nonactivating window
+  opens at bundle launch if core permissions are missing, without stealing the foreground app.
+  Visual QA: `WT_SHOOT_PERMISSIONS=/tmp/permissions.png .build/debug/WalkieTalkie`, with
+  `WT_PERMISSIONS_DARK=1` / `WT_PERMISSIONS_READY=1` for variants; exits before normal app startup.
+
 - **Every string in `StatusItem` is English.** The menu is where every gesture is written down —
   `Connect Terminal` / `Disconnect` / `Start dictation to new claude` and their chords, the three
   dictation rows, `Engine: …`, the legends, `Autosend`, `About`, `Quit`, the model name.

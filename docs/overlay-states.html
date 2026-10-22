@@ -133,7 +133,7 @@
         </header>
         <div class="shot empty"><span>no window on screen</span></div>
         <p class="when">Whenever nothing is bound — which is most of the day, since the app runs from login.</p>
-        <p class="note">There is no window on screen at all — unless a sentence is waiting for a bind (<code>held-waiting</code>). Not a faded one: <code>orderOut</code>, because an invisible panel still swallows clicks on whatever it is over. This is the state the empty pointer was won back for.</p>
+        <p class="note">There is no window on screen at all — apart from the first five seconds of a clipboard receipt (<code>held-waiting</code>). Not a faded one: <code>orderOut</code>, because an invisible panel still swallows clicks on whatever it is over. This is the state the empty pointer was won back for.</p>
         <code class="slug">unbound-idle</code>
       </section>
       <section class="card" id="bound-idle">
@@ -222,7 +222,7 @@
         </header>
         <div class="shot"><img src="states/bind-to-send.png" width="215" height="93" style="opacity:0.8" alt="Nothing is bound, and he is talking anyway"></div>
         <p class="when">Any dictation started with no terminal bound — which the app refused outright until 2026-09-11, and now holds for the bind that follows it.</p>
-        <p class="note"><strong>The destination row names a gesture rather than a place</strong>, because that is what this destination still is: <em>bind to send</em>, behind the same drawn pin <code>at caret</code> rides behind. It is the fourth answer to <em>where do these words go</em> — a terminal already bound, one it is about to open for itself, the caret, and now <strong>later</strong> (<code>AppDelegate.holdsForBind</code>). The sentence is recorded, shown and read exactly as a bound one is, and <code>commit</code> parks it for five minutes; the outbox line is written at delivery and not before, which is the whole of what survives from the 2026-08-27 decision that unbound means silent. The row comes down the instant a bind lands, and the chip says <code>📨 held — bind a terminal to send it</code> once the words have left the dictation, and <code>📨 1 waiting — bind to send</code> until a bind sends it (next shot). <strong>The icon form and not the ✨&#x27;s mark form</strong>: a mark with no icon is <code>spawnCollapsed</code>, which drops the row and rides the glyph in front of <code>Listening...</code>, so the words would never have been drawn.</p>
+        <p class="note"><strong>The destination row names a gesture rather than a place</strong>, because that is what this destination still is: <em>bind to send</em>, behind the same drawn pin <code>at caret</code> rides behind. It is the fourth answer to <em>where do these words go</em> — a terminal already bound, one it is about to open for itself, the caret, and now <strong>later</strong> (<code>AppDelegate.holdsForBind</code>). The sentence is recorded, shown and read exactly as a bound one is, and <code>commit</code> parks it for five minutes; the outbox line is written at delivery and not before, which is the whole of what survives from the 2026-08-27 decision that unbound means silent. The row comes down the instant a bind lands, and the chip shows <code>📋 Ready to paste — ⌘V</code> for five seconds once the transcript is ready (next shot). <strong>The icon form and not the ✨&#x27;s mark form</strong>: a mark with no icon is <code>spawnCollapsed</code>, which drops the row and rides the glyph in front of <code>Listening...</code>, so the words would never have been drawn.</p>
         <code class="slug">bind-to-send</code>
       </section>
     </div>
@@ -230,25 +230,35 @@
     <div class="grid">
       <section class="card" id="held-waiting">
         <header>
-          <h3>Unbound, with sentences waiting for a bind</h3>
-          <div class="tags"><span class="tag tag-chip" title="bare text beside the cursor — no blur, no shadow, no ✕">chip</span><span class="tag">alpha 0.80</span><span class="tag">239×46 pt</span></div>
+          <h3>Unbound, ready to paste</h3>
+          <div class="tags"><span class="tag tag-chip" title="bare text beside the cursor — no blur, no shadow, no ✕">chip</span><span class="tag">alpha 0.80</span><span class="tag">218×46 pt</span></div>
         </header>
-        <div class="shot"><img src="states/held-waiting.png" width="239" height="46" style="opacity:0.8" alt="Unbound, with sentences waiting for a bind"></div>
-        <p class="when">A sentence was spoken with nothing bound (Victor&#x27;s Q1, 2026-09-26: held, never pasted at the caret) — from the moment it is held until a bind sends it or its five minutes run out. Two here.</p>
-        <p class="note"><strong>The one chip an unbound pointer may carry.</strong> <em>The pointer is clean when nothing is bound</em> still holds for a relay with nothing to say; this row is something to say — <em>&quot;mi-ar trebui un cue vizual să știu că trebuie să las mesajul din memorie&quot;</em>. It counts what <code>awaitingBind</code> holds, so a second sentence says <code>2</code>, and it goes the instant a bind delivers them. Built like <code>☠️ Kamikaze</code>: an emoji in the icon column, words beside it. It is announced once with a flash, <code>📨 held — bind a terminal to send it</code>.</p>
+        <div class="shot"><img src="states/held-waiting.png" width="218" height="46" style="opacity:0.8" alt="Unbound, ready to paste"></div>
+        <p class="when">For five seconds after an unbound transcript is ready on the clipboard.</p>
+        <p class="note">A short clipboard receipt, with no binding instruction. Paste into any terminal with ⌘V. The notice disappears after five seconds; the clipboard remains available.</p>
         <code class="slug">held-waiting</code>
+      </section>
+      <section class="card" id="held-waiting-expired">
+        <header>
+          <h3>Unbound, five seconds later</h3>
+          <div class="tags"><span class="tag tag-none" title="nothing on screen">no window</span></div>
+        </header>
+        <div class="shot empty"><span>no window on screen</span></div>
+        <p class="when">The clipboard receipt has expired, even if the internal bind queue still contains sentences.</p>
+        <p class="note">Nothing stays beside the pointer. The transcript remains on the clipboard, and older queue entries expiring do not bring the notice back.</p>
+        <code class="slug">held-waiting-expired</code>
       </section>
     </div>
     <h2 id="Dictating">Dictating</h2>
     <div class="grid">
       <section class="card" id="held-waiting-dictating">
         <header>
-          <h3>Talking again, with one already waiting</h3>
-          <div class="tags"><span class="tag tag-chip" title="bare text beside the cursor — no blur, no shadow, no ✕">chip</span><span class="tag">alpha 0.80</span><span class="tag">237×117 pt</span></div>
+          <h3>Talking again, just after a transcript</h3>
+          <div class="tags"><span class="tag tag-chip" title="bare text beside the cursor — no blur, no shadow, no ✕">chip</span><span class="tag">alpha 0.80</span><span class="tag">216×117 pt</span></div>
         </header>
-        <div class="shot"><img src="states/held-waiting-dictating.png" width="237" height="117" style="opacity:0.8" alt="Talking again, with one already waiting"></div>
-        <p class="when">A new dictation while a held sentence waits — still nothing bound.</p>
-        <p class="note">The row stays under the destination while he talks: the new sentence will join the queue behind it, and both go, oldest first, on the next bind.</p>
+        <div class="shot"><img src="states/held-waiting-dictating.png" width="216" height="117" style="opacity:0.8" alt="Talking again, just after a transcript"></div>
+        <p class="when">A new dictation begins within the five-second clipboard receipt.</p>
+        <p class="note">The receipt keeps its original deadline while he talks. A newly completed transcript starts a fresh five seconds.</p>
         <code class="slug">held-waiting-dictating</code>
       </section>
     </div>
@@ -519,16 +529,6 @@
         <p class="when">Two seconds, the moment a dictation reaches the agent.</p>
         <p class="note">A flash is a panel: blur, rounded rect, shadow — riding beside the pointer like the chip. It dissolves rather than cutting out, because a window vanishing under his hand is an event and <code>🎙️ sent</code> is not.</p>
         <code class="slug">flash-sent</code>
-      </section>
-      <section class="card" id="flash-held">
-        <header>
-          <h3>Flash — held for a bind</h3>
-          <div class="tags"><span class="tag tag-flash" title="a message in the chip for a few seconds — bare like the chip, no blur, no border">flash</span><span class="tag">alpha 0.80</span><span class="tag">295×70 pt</span></div>
-        </header>
-        <div class="shot"><img src="states/flash-held.png" width="295" height="70" style="opacity:0.8" alt="Flash — held for a bind"></div>
-        <p class="when">Three seconds, the moment a sentence spoken with nothing bound is held (Q1). The <code>📨 N waiting</code> row stays after it.</p>
-        <p class="note">Said once, when it happens, under the <code>📨 N waiting</code> row — which is what stays when the flash has gone.</p>
-        <code class="slug">flash-held</code>
       </section>
       <section class="card" id="flash-kamikaze-queued">
         <header>
@@ -815,7 +815,7 @@
       </section>
     </div>
 <footer>
-  Generated from <code>OverlayStates.swift</code> · repo at e88f289 · 17 Oct 2026 · built 17 Oct 2026, 12:33
+  Generated from <code>OverlayStates.swift</code> · repo at 7aeadc2 · 17 Oct 2026 · built 22 Oct 2026, 23:53
 </footer>
 <button class="toggle" onclick="document.body.classList.toggle('light')">Backdrop: dark / light</button>
 </body>

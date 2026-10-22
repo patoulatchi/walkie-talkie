@@ -60,7 +60,7 @@ wheel. The menu bar icon lists every action next to the gesture that does it.
 - 🍏 Apple silicon only: the vendored projectM libraries are arm64.
 - 📦 [`victor-mac-kit`](https://github.com/victorrentea/victor-mac-kit) is fetched from GitHub on the first build, unless it is checked out next to this folder (then that copy is used).
 - 🔏 Without `CODESIGN_IDENTITY` the app is signed ad hoc, and macOS forgets the Accessibility grant on every rebuild; any local self-signed code-signing certificate fixes that.
-- 🔐 Grant **Accessibility**, **Screen Recording** and **Microphone** when asked.
+- 🔐 Grant **Accessibility**, **Screen Recording** and **Microphone** when asked. Open **Permissions…** in the Walkie Talkie menu to review access, jump to each System Settings pane, find the app for re-adding it, and restart safely. The window opens automatically if access is missing after an update.
 - 🗣️ Pick a recogniser from the menu: **ElevenLabs Scribe** (key in `~/.walkie-talkie/elevenlabs.env`), a **local Whisper** (`pip install mlx-whisper`, plus `ffmpeg`) or **Wispr Flow**.
 - 🧩 Optional, for picking elements in Chrome: `chrome://extensions` → Developer mode → **Load unpacked** → `chrome-extension/`.
 

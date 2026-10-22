@@ -17,7 +17,7 @@ Rules for where a dictation goes and when it is written: the held prompt, the ou
 - **A terminal gone at delivery → the words are pasted at the caret** (Victor's Q4, 2026-09-26): `deliverToTerminal` on `.targetGone` records `caret` and `pasteText`s the envelope; no outbox line; the binding goes as before. → journal: *Fixes to the test plan's findings, batch 1*
 - **Shots with no transcript go out alone after 120 s — counted from the stop** (2026-09-26, TL1, TD8). The orphan timer (`orphanTimerFired`) does nothing while the sentence is open, settling or its words are in flight, and re-arms; `dictationStoppedListening` re-arms it from the close. It used to fire 120 s after the *start* and wipe a long sentence's envelope under him (context, selection, markers, `dictationStartedAt`), sending its shots on their own. → journal: *Fixes to the test plan's findings, batch 3*
 - **`session_end` is not delivered to terminals.** It is addressed to a watcher and means nothing to a terminal; quitting (✕, menu **Quit**) still writes it, unbinding does not. → journal: *Bound to a terminal: the second destination*
-- **Only `commit()` writes the held prompt** — on the countdown running out, a click on the overlay body, or quit. The agent polls the outbox every couple of seconds, so a line already written may already be a tool call in flight; Cancel can only mean something while nothing has been written. → journal: *The prompt is held, not sent*
+- **Only `commit()` delivers the held prompt** — on the countdown running out, a click on the overlay body, or quit. The clipboard is prepared before the preview appears; copying is not delivery. The agent polls the outbox every couple of seconds, so a line already written may already be a tool call in flight; Cancel can only mean something while nothing has been written. → journal: *The prompt is held, not sent*
 
 ## Unbound: hold, do not refuse (`holdsForBind`, 2026-09-11)
 
@@ -35,9 +35,9 @@ Rules for where a dictation goes and when it is written: the held prompt, the ou
   | the outbox line | not written | **written at delivery, not before** |
   | `corpus.captureLocal` | on | on |
 
-- **Nothing bound at the close → held, never the caret** (Victor's Q1, 2026-09-26: *"bind to send memory"*). `latchedAtCaret = pasteMode`; the unbound caret clause (`!isBound && !spawnPending && spawnPickInFlight == nil`) is gone, and so is the halo's `listening && !isBound` caret clause. The caret is the forward click / F7 (`pasteMode`), the back click's clean sentence, and a sentence **Wispr's own chord** opened with nothing bound (`noteHandStartedAtCaret` sets `pasteMode` — holding it would take Wispr away from every app while the relay is unbound). 🔼 → over a clean sentence takes it to the terminal (`cleanRedirected`; TG13). The chip counts what waits: `📨 N waiting — bind to send`. → journal: *Fixes to the test plan's findings, batch 2*
+- **Nothing bound at the close → held, never the caret** (Victor's Q1, 2026-09-26: *"bind to send memory"*). `latchedAtCaret = pasteMode`; the unbound caret clause (`!isBound && !spawnPending && spawnPickInFlight == nil`) is gone, and so is the halo's `listening && !isBound` caret clause. The caret is the forward click / F7 (`pasteMode`), the back click's clean sentence, and a sentence **Wispr's own chord** opened with nothing bound (`noteHandStartedAtCaret` sets `pasteMode` — holding it would take Wispr away from every app while the relay is unbound). 🔼 → over a clean sentence takes it to the terminal (`cleanRedirected`; TG13). Since 2026-10-22 the chip shows only a five-second `📋 Ready to paste — ⌘V` receipt; the internal queue does not keep a binding reminder beside the pointer. → journal: *Fixes to the test plan's findings, batch 2*
 - **`awaitingBind` is a queue, delivered in order** (Victor's Q3, 2026-09-26: *both are kept*). It held one sentence until then and a second replaced the first silently (TD2). `releaseAwaitingBind` commits every held sentence oldest first; the serial delivery queue keeps the typing order. → journal: *Fixes to the test plan's findings, batch 1*
-- **Five minutes per sentence**, the same net as `Recover Cancelled Dictation`. On expiry the chip says `⏳ held dictation expired — ⌘V to paste it`; the alternative is a sentence he believes is still on its way. → journal: *`awaitingBind`: one sentence, five minutes*
+- **Five minutes per sentence**, the same net as `Recover Cancelled Dictation`. Since 2026-10-22 the internal hold expires quietly: the clipboard is still available, and the five-second clipboard receipt does not reappear. → journal: *`awaitingBind`: one sentence, five minutes*
 - **Release it from `showBound`, deliberate or not.** Every route into a binding passes through it (⌘⌃B, the chords, `POST /bind`, the restart's restore, a spawned window adopting itself). Unlike the spawn and caret take-backs, the poll cannot produce a binding out of nothing, so it can never be the call that releases this. → journal: *`awaitingBind`: one sentence, five minutes*
 - **The chip says `⏳ bind to send — ⌘⌃B` while he talks**, in the destination row, naming the *gesture*; it comes down the moment a bind lands. → journal: *`awaitingBind`: one sentence, five minutes*
 - **`syncLocalCapture`'s cost is outside this app.** With **Mouse Gestures: Wheel** the wheel is the relay's for as long as the relay runs — middle-click stops opening links in Chrome and closing tabs in VS Code (*"folosesc middle click sa inchid de ex taburi chrome/vsc"*). In the default mode it costs nothing. The line to put back to `isBound` is one, named in `syncLocalCapture`'s own comment. The unbound double-click branch at the bottom of `HotkeyTap`'s middle-button chain is unreachable now and is left standing for the flip back. → journal: *The one gate whose price is outside this app*
@@ -91,7 +91,7 @@ tokens where he made them (2026-09-19)*.
 - **`auto` marks the frame he did not press for** — `[📸0🖱️@1000:800 auto]`, from `AppDelegate.leading` only. It was the last thing in the envelope a reader had to guess.
 - **A token the words could not carry keeps its row and gains `at m:ss`.** Placement needs word timings, so on Wispr Flow (no timings; spoken markers aside — `dictation-source.md`, *Markers*) nothing is inline and the footer is the whole envelope. That is not a degradation; it is the addressing the tokens are an optimisation over.
 - **The context frame leads the words and has no cue.** He took it by starting to talk. At the caret there is none at all — that mode takes no context shot, and Victor confirmed it stays that way (2026-09-19). **Superseded 2026-09-23 for the forward click**: its caret sentence is a prompt and carries the whole `terminalLine` envelope, context frame included (`AppDelegate.caretPrompt`); the back click's is the words alone (`cleanSentence`). → journal: *Forward is a prompt, back is plain words*
-- **`[Focused window: …]` and `picksClause` are gone**; the application survives only inside a highlight's token, where it says which app the text came *from*. The hint is `[Transcribed in RO or EN by <engine>]` since 2026-10-12 (*"let's call it transcribed in RO or EN, and then you place the name of the engine"* — `AppDelegate.engineName`, the panel's `Engine:` row; it was `[Dictated in RO or EN]`, engine cut for cost on 2026-09-19, back now that the `walkie-inbox` mod hides the footer from the transcript).
+- **No transcription footer (2026-10-22):** do not append `[Transcribed in RO or EN by <engine>]` or a replacement language/engine note to delivered text. It was hard-coded and did not reflect the selected language; the user asked to remove it entirely. Engine information stays in the panel and outbox metadata. `[Focused window: …]` and `picksClause` remain gone; an application name belongs only in a highlight token that identifies its source.
 - **Measured before shipping** — `evals/envelope-symbols/`, 18 runs, 11 comprehension questions: **Sonnet 33/33 and Opus 33/33** on Victor's template against 30/33 and 32/33 on the envelope it replaces, at **925 characters against 1810**. **Round two, 2026-09-20**, 36 runs over a scene with three plain frames: folding those rows is free (36/36 on naming 📸2's full-resolution file) and costs only the inferred *which frame was automatic*, which ` auto` then answers outright — 78/78 both models, 155 characters less.
 - **Number the pictures consecutively as they attach.** Every run of the eval remarked on the gap in the sketch's `📸1 … 📸3`; a hole reads as a picture that was lost.
 
@@ -122,10 +122,13 @@ scriem în clipboard la final promptul sau dictarea curată, indiferent ce și c
 
 - **At the end of every dictation the final text is written to the pasteboard** — whatever the
   engine (Wispr, ElevenLabs, local, the local fallback) and wherever it went (bound terminal, spawn,
-  caret, a held sentence at its release, a panel sent after an edit): the **prompt envelope**
+  caret, a held sentence, a panel sent after an edit): the **prompt envelope**
   (`terminalLine`, byte for byte what the agent received) for a relay sentence, **the clean words**
-  for a plain one (the back click, right ⌘⌥ held). One call site at the end of delivery, never
-  per destination.
+  for a plain one (the back click, right ⌘⌥ held).
+- **Manual paste is ready before the preview appears (2026-10-22):** `send` copies the fully
+  assembled `terminalLine(message)` and updates `lastDictation` before showing the prompt.
+  The review countdown never delays ⌘V. `commit` still refreshes the clipboard after edits;
+  automatic delivery and outbox writes keep their existing timing.
 - **The previous clipboard is never restored.** The sentence is always one ⌘V away; that is the
   feature (W5 argued the other way and was overruled).
 - **Wispr's own clipboard dance comes after ours** (W8: Wispr writes its text ~30 ms before
@@ -136,7 +139,8 @@ scriem în clipboard la final promptul sau dictarea curată, indiferent ce și c
 - **A cancelled dictation writes nothing** — there is no finished text; *Recover Cancelled
   Dictation* is that case's door. **A cancelled prompt panel does** (its words are finished text):
   the envelope goes on the clipboard and the hint follows.
-- **One door: `AppDelegate.holdOnClipboard(_:why:)`** — called from `commit` (every relay sentence,
+- **One door: `AppDelegate.holdOnClipboard(_:why:)`** — called from `send` before the preview,
+  `commit` (every relay sentence,
   bound, spawned or held for a bind), `pasteText` (every caret sentence), the two *the source
   inserted it itself* branches of `deliver`, and a cancelled panel. Log line `📋 N chars on the
   clipboard — <why> (Q17)`; `GET /test/state.pasteboard` shows the write as `writer: walkie`.
@@ -224,8 +228,7 @@ panel that appears next to the mouse carrying the response … super important t
 me to dismiss it explicitly"*.
 
 - **Only a prompt with a `?` asks for it** — `terminalLine` adds `AppDelegate.questionHint`,
-  `[If I asked you a question, also run: walkie-reply "<the answer in ≤2 short sentences>" [--image <path> when a small picture says it better]. Only to answer me — never to ask me something, never to report work done.]`, after
-  `[Dictated in RO or EN]`. Every other prompt pays nothing. **Narrowed 2026-10-08**: an agent
+  `[If I asked you a question, also run: walkie-reply "<the answer in ≤2 short sentences>" [--image <path> when a small picture says it better]. Only to answer me — never to ask me something, never to report work done.]`. Every other prompt pays nothing. **Narrowed 2026-10-08**: an agent
   answered *"E oare posibil?"* (a request) by doing it, then `walkie-reply "Gata: …"` — Victor: *"nu
   că au terminat … un pic abuz"*. Then, the same night: *"exclusiv când eu întreb ceva. Atât … Niciodată
   să nu fie folosit ca să mă întrebe Claude pe mine ceva"* — **only the answer to his question; never
